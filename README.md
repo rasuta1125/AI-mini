@@ -1,21 +1,98 @@
-```txt
-npm install
-npm run dev
-```
+# AI広告分析ink
 
-```txt
-npm run deploy
-```
+## プロジェクト概要
+- **名前**: AI広告分析ink
+- **目標**: Meta広告のCSVデータをアップロードするだけで、主要KPI（CTR/CPC/CPA/フォロー率）を自動算出し、グラフ可視化とAI改善コメントを表示するダッシュボード
+- **機能**: CSV解析、KPI自動算出、グラフ可視化、AI分析コメント、レスポンシブデザイン
 
-[For generating/synchronizing types based on your Worker configuration run](https://developers.cloudflare.com/workers/wrangler/commands/#types):
+## 📊 現在完了している機能
+✅ **CSVアップロード機能**
+- Meta広告からエクスポートしたCSVファイルの自動認識
+- 日本語列名対応（キャンペーン名、消化金額、結果、フォロワー、リーチ、インプレッション等）
+- エラーハンドリングとファイル検証
 
-```txt
-npm run cf-typegen
-```
+✅ **KPI自動算出**
+- CTR（クリック率）: 結果 ÷ インプレッション
+- CPC（クリック単価）: 消化金額 ÷ 結果
+- CPA（フォロワー単価）: 消化金額 ÷ フォロワー
+- フォロー率: フォロワー ÷ リーチ
+- 空値・ゼロ除算の安全な処理
 
-Pass the `CloudflareBindings` as generics when instantiation `Hono`:
+✅ **グラフ可視化（Chart.js）**
+- キャンペーン別CTR比較（棒グラフ）
+- キャンペーン別CPA比較（棒グラフ）
+- リーチ×フォロー率散布図
+- インタラクティブな表示切り替え
 
-```ts
-// src/index.ts
-const app = new Hono<{ Bindings: CloudflareBindings }>()
-```
+✅ **AI分析コメント機能**
+- OpenAI API連携による自動分析
+- 良い点・改善点・具体的提案の3区分
+- 日本語での詳細なマーケティング分析
+
+✅ **デザイン・UI/UX**
+- 紫→青のグラデーション背景
+- ガラスモーフィズム効果
+- 4カード機能レイアウト
+- クイックスタート（3ステップ）ガイド
+- ホバーアニメーションとマイクロインタラクション
+- レスポンシブデザイン（モバイル・タブレット対応）
+
+## 🌐 URL一覧
+- **開発環境**: https://3000-i3bm4wb6cbqix6pc7t98z-b237eb32.sandbox.novita.ai
+- **ヘルスチェック**: https://3000-i3bm4wb6cbqix6pc7t98z-b237eb32.sandbox.novita.ai/api/health
+- **GitHub**: https://github.com/rasuta1125/AI-mini
+- **本番環境**: 未設定（Cloudflare API key 設定後にデプロイ予定）
+
+## 🏗️ データアーキテクチャ
+- **フロントエンド**: バニラJavaScript + Tailwind CSS + Chart.js
+- **バックエンド**: Hono Framework + Cloudflare Workers
+- **AI処理**: OpenAI GPT-3.5-turbo API
+- **データフロー**: 
+  1. ブラウザでCSV解析・KPI算出
+  2. サーバーサイドでAI分析（OpenAI API）
+  3. リアルタイムでUI更新・グラフ表示
+
+## 📋 使い方ガイド
+### ステップ1: CSVを用意
+Meta Business Managerから広告データをCSVでエクスポートします。
+必要な列：キャンペーン名、消化金額、結果、フォロワー、リーチ、インプレッション
+
+### ステップ2: アップロードして分析
+1. 「CSVファイルを選択」でファイルをアップロード
+2. 「CSVを分析」ボタンをクリック
+3. 自動でKPIが算出され、グラフが表示されます
+
+### ステップ3: AIコメントを確認
+1. 「AI分析実行」ボタンをクリック
+2. OpenAIによる分析結果を確認
+3. 改善提案を次回の運用に活用
+
+## 🚀 デプロイメント
+- **プラットフォーム**: Cloudflare Pages + Workers
+- **ステータス**: 開発完了、本番デプロイ準備中
+- **技術スタック**: 
+  - Hono (Web Framework)
+  - TypeScript
+  - Tailwind CSS
+  - Chart.js
+  - OpenAI API
+- **最終更新**: 2025年10月11日
+
+## ⚙️ 環境変数設定
+本番デプロイ時に以下の環境変数が必要です：
+- `OPENAI_API_KEY`: OpenAI APIキー（AI分析機能に必要）
+
+## 🔮 今後の拡張予定（v1.1以降）
+- 広告画像サムネイルプレビュー機能
+- AI分析レポートのPDF出力
+- ユーザー認証とデータ保存（Cloudflare D1）
+- 履歴管理とトレンド分析
+- 複数プラットフォーム対応（Google Ads、Twitter Ads等）
+
+## 🐛 既知の制限事項
+- AI分析にはOpenAI API keyが必要（環境変数設定）
+- CSVデータはセッション中のみ保持（リロードで消去）
+- 大容量CSVファイル（1MB以上）は処理時間が長くなる場合があります
+
+## 📞 サポート・問い合わせ
+技術的な質問やバグ報告は、GitHub Issuesをご利用ください。
