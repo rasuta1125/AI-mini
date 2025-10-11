@@ -90,27 +90,90 @@ class AdAnalysisDashboard {
     }
 
     parseCSV(csvText) {
-        const lines = csvText.split('\\n').filter(line => line.trim());
+        // Remove BOM if present
+        csvText = csvText.replace(/^\ufeff/, '');
+        
+        console.log('Raw CSV text (first 500 chars):', csvText.substring(0, 500));
+        
+        // Split lines and filter out empty ones
+        const lines = csvText.split(/\r?\n/).filter(line => line.trim());
+        console.log('CSV lines found:', lines.length);
+        
         if (lines.length < 2) {
-            throw new Error('CSVファイルが無効です（ヘッダーとデータが必要）');
+            throw new Error(`CSVファイルが無効です（ヘッダーとデータが必要）。検出された行数: ${lines.length}`);
         }
 
-        const headers = lines[0].split(',').map(h => h.trim().replace(/\"/g, ''));
+        // Parse header line
+        const rawHeaders = this.parseCSVLine(lines[0]);
+        console.log('Raw headers:', rawHeaders);
+        
+        // Clean and map headers to expected names
+        const headers = rawHeaders.map(h => h.trim());
+        console.log('Cleaned headers:', headers);
+        
+        // Create column mapping for Japanese headers
+        const columnMapping = this.createColumnMapping(headers);
+        console.log('Column mapping:', columnMapping);
+        
         const data = [];
 
+        // Parse data lines
         for (let i = 1; i < lines.length; i++) {
             const values = this.parseCSVLine(lines[i]);
-            if (values.length >= headers.length) {
+            if (values.length > 0 && values.some(v => v.trim())) { // Skip completely empty rows
                 const row = {};
+                
+                // Map columns to standardized names
                 headers.forEach((header, index) => {
-                    row[header] = values[index] || '';
+                    const standardName = columnMapping[header] || header;
+                    row[standardName] = values[index] || '';
                 });
-                data.push(row);
+                
+                // Ensure we have at least some required data
+                if (row['キャンペーン名'] || row['広告セット名'] || row['消化金額']) {
+                    data.push(row);
+                }
             }
         }
 
-        console.log('Parsed CSV data:', data.slice(0, 3)); // Log first 3 rows for debugging
+        console.log('Parsed CSV data (first 3 rows):', data.slice(0, 3));
+        console.log('Total rows parsed:', data.length);
+        
+        if (data.length === 0) {
+            throw new Error('CSVファイルにデータが見つかりません。ヘッダー行以外にデータ行があることを確認してください。');
+        }
+        
         return data;
+    }
+
+    createColumnMapping(headers) {
+        const mapping = {};
+        
+        headers.forEach(header => {
+            const cleanHeader = header.trim();
+            
+            // Map various possible column names to standardized names
+            if (cleanHeader.includes('キャンペーン名') || cleanHeader === 'Campaign Name') {
+                mapping[cleanHeader] = 'キャンペーン名';
+            } else if (cleanHeader.includes('広告セット名') || cleanHeader === 'Ad Set Name') {
+                mapping[cleanHeader] = '広告セット名';
+            } else if (cleanHeader.includes('消化金額') || cleanHeader.includes('Amount Spent') || cleanHeader.includes('JPY')) {
+                mapping[cleanHeader] = '消化金額';
+            } else if (cleanHeader.includes('結果') && !cleanHeader.includes('単価') && !cleanHeader.includes('タイプ')) {
+                mapping[cleanHeader] = '結果';
+            } else if (cleanHeader.includes('フォロワー') || cleanHeader === 'Followers') {
+                mapping[cleanHeader] = 'フォロワー';
+            } else if (cleanHeader.includes('リーチ') || cleanHeader === 'Reach') {
+                mapping[cleanHeader] = 'リーチ';
+            } else if (cleanHeader.includes('インプレッション') || cleanHeader === 'Impressions') {
+                mapping[cleanHeader] = 'インプレッション';
+            } else {
+                // Keep original name if no mapping found
+                mapping[cleanHeader] = cleanHeader;
+            }
+        });
+        
+        return mapping;
     }
 
     parseCSVLine(line) {
@@ -120,9 +183,17 @@ class AdAnalysisDashboard {
 
         for (let i = 0; i < line.length; i++) {
             const char = line[i];
+            const nextChar = line[i + 1];
 
             if (char === '"') {
-                inQuotes = !inQuotes;
+                if (inQuotes && nextChar === '"') {
+                    // Escaped quote
+                    current += '"';
+                    i++; // Skip next quote
+                } else {
+                    // Toggle quote state
+                    inQuotes = !inQuotes;
+                }
             } else if (char === ',' && !inQuotes) {
                 result.push(current.trim());
                 current = '';
@@ -132,7 +203,7 @@ class AdAnalysisDashboard {
         }
 
         result.push(current.trim());
-        return result.map(value => value.replace(/\"/g, ''));
+        return result.map(value => value.replace(/^"|"$/g, '')); // Remove surrounding quotes only
     }
 
     calculateKPIs(data) {
@@ -189,9 +260,16 @@ class AdAnalysisDashboard {
     }
 
     parseNumber(value) {
+        if (!value || value === '') return 0;
+        
         if (typeof value === 'string') {
-            // Remove currency symbols, commas, and whitespace
-            value = value.replace(/[¥,\\s]/g, '');
+            // Remove currency symbols, commas, whitespace, and parentheses
+            value = value.replace(/[¥,\\s()]/g, '');
+            // Handle negative numbers in parentheses format
+            if (value.includes('-')) {
+                value = value.replace('-', '');
+                return -parseFloat(value) || 0;
+            }
         }
         const num = parseFloat(value);
         return isNaN(num) ? 0 : num;
@@ -439,7 +517,7 @@ class AdAnalysisDashboard {
 
     parseAnalysisText(text) {
         const sections = [];
-        const lines = text.split('\\n').filter(line => line.trim());
+        const lines = text.split('\n').filter(line => line.trim());
         
         let currentSection = null;
         
@@ -452,11 +530,11 @@ class AdAnalysisDashboard {
                     sections.push(currentSection);
                 }
                 currentSection = {
-                    title: line.replace(/^##\\s*/, ''),
+                    title: line.replace(/^##\s*/, ''),
                     content: ''
                 };
             } else if (currentSection && line) {
-                currentSection.content += line + '\\n';
+                currentSection.content += line + '\n';
             }
         });
         
