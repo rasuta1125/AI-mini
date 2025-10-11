@@ -93,32 +93,63 @@ ${summary.campaigns.map((c, i) =>
 [次回の運用で実践できる具体的な改善案を3-5個提示]
 `;
 
-    // Call OpenAI API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'あなたは経験豊富なデジタルマーケティング専門家です。Meta広告のデータ分析に基づいて、具体的で実践的なアドバイスを提供してください。'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 1000,
-        temperature: 0.7
-      })
-    });
+    // Call OpenAI API with retry logic
+    let response;
+    let retryCount = 0;
+    const maxRetries = 3;
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+    while (retryCount < maxRetries) {
+      try {
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [
+              {
+                role: 'system',
+                content: 'あなたは経験豊富なデジタルマーケティング専門家です。Meta広告のデータ分析に基づいて、具体的で実践的なアドバイスを提供してください。'
+              },
+              {
+                role: 'user',
+                content: prompt
+              }
+            ],
+            max_tokens: 800,
+            temperature: 0.7
+          })
+        });
+
+        if (response.ok) {
+          break; // Success, exit retry loop
+        }
+
+        // Handle rate limiting (429) with exponential backoff
+        if (response.status === 429) {
+          retryCount++;
+          if (retryCount < maxRetries) {
+            const waitTime = Math.pow(2, retryCount) * 1000; // 2s, 4s, 8s
+            console.log(`Rate limited. Waiting ${waitTime}ms before retry ${retryCount}/${maxRetries}`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+        }
+
+        // Handle other errors
+        const errorText = await response.text();
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+
+      } catch (fetchError) {
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          throw fetchError;
+        }
+        // Wait before retry for network errors
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
 
     const aiResult = await response.json();
@@ -132,16 +163,79 @@ ${summary.campaigns.map((c, i) =>
 
   } catch (error) {
     console.error('AI Analysis error:', error);
-    return c.json({ 
-      error: 'AI分析中にエラーが発生しました',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, 500);
+    
+    // Provide fallback analysis when OpenAI API is unavailable
+    const fallbackAnalysis = generateFallbackAnalysis(summary);
+    
+    return c.json({
+      success: true,
+      analysis: fallbackAnalysis,
+      summary,
+      note: 'AI APIが一時的に利用できないため、基本的な分析結果を表示しています。'
+    });
   }
 });
 
 // Health check endpoint
 app.get('/api/health', (c) => {
   return c.json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+// Test fallback analysis endpoint (デモ用)
+app.post('/api/test-fallback', async (c) => {
+  try {
+    const { csvData } = await c.req.json();
+    
+    if (!csvData || !Array.isArray(csvData)) {
+      return c.json({ error: 'Invalid CSV data' }, 400);
+    }
+
+    // Calculate summary (同じロジック)
+    const summary = {
+      totalCampaigns: csvData.length,
+      totalSpend: 0,
+      totalResults: 0,
+      totalFollowers: 0,
+      totalReach: 0,
+      totalImpressions: 0,
+      campaigns: []
+    };
+
+    csvData.forEach(row => {
+      const spend = parseFloat(row['消化金額']) || 0;
+      const results = parseFloat(row['結果']) || 0;
+      const followers = parseFloat(row['フォロワー']) || 0;
+      const reach = parseFloat(row['リーチ']) || 0;
+      const impressions = parseFloat(row['インプレッション']) || 0;
+
+      summary.totalSpend += spend;
+      summary.totalResults += results;
+      summary.totalFollowers += followers;
+      summary.totalReach += reach;
+      summary.totalImpressions += impressions;
+    });
+
+    summary.avgCTR = summary.totalImpressions > 0 ? (summary.totalResults / summary.totalImpressions * 100) : 0;
+    summary.avgCPC = summary.totalResults > 0 ? (summary.totalSpend / summary.totalResults) : 0;
+    summary.avgCPA = summary.totalFollowers > 0 ? (summary.totalSpend / summary.totalFollowers) : 0;
+    summary.avgFollowRate = summary.totalReach > 0 ? (summary.totalFollowers / summary.totalReach * 100) : 0;
+
+    const fallbackAnalysis = generateFallbackAnalysis(summary);
+
+    return c.json({
+      success: true,
+      analysis: fallbackAnalysis,
+      summary,
+      note: 'フォールバック分析のテスト結果です。'
+    });
+
+  } catch (error) {
+    console.error('Test Fallback error:', error);
+    return c.json({ 
+      error: 'テスト中にエラーが発生しました',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, 500);
+  }
 });
 
 // Default route - AI広告分析ダッシュボード
@@ -354,5 +448,58 @@ app.get('/', (c) => {
     </html>
   `)
 })
+
+// Fallback analysis function when OpenAI API is unavailable
+function generateFallbackAnalysis(summary: any): string {
+  const avgCTR = summary.avgCTR || 0;
+  const avgCPC = summary.avgCPC || 0;
+  const avgCPA = summary.avgCPA || 0;
+  const avgFollowRate = summary.avgFollowRate || 0;
+  
+  let analysis = `## 📊 データ分析結果\n\n`;
+  
+  // Performance evaluation
+  analysis += `## ✅ パフォーマンス評価\n\n`;
+  
+  if (avgCTR > 2.0) {
+    analysis += `• **CTR ${avgCTR.toFixed(2)}%**: 優秀な結果です。平均的なCTRを上回っています。\n`;
+  } else if (avgCTR > 1.0) {
+    analysis += `• **CTR ${avgCTR.toFixed(2)}%**: 標準的な結果です。\n`;
+  } else {
+    analysis += `• **CTR ${avgCTR.toFixed(2)}%**: 改善の余地があります。広告クリエイティブの見直しをお勧めします。\n`;
+  }
+  
+  if (avgCPC < 100) {
+    analysis += `• **CPC ¥${Math.round(avgCPC)}**: 低コストでの獲得ができています。\n`;
+  } else if (avgCPC < 200) {
+    analysis += `• **CPC ¥${Math.round(avgCPC)}**: 標準的なコストです。\n`;
+  } else {
+    analysis += `• **CPC ¥${Math.round(avgCPC)}**: 高めのコストです。ターゲティングの最適化をお勧めします。\n`;
+  }
+  
+  if (avgFollowRate > 5.0) {
+    analysis += `• **フォロー率 ${avgFollowRate.toFixed(2)}%**: 高いエンゲージメント率です。\n`;
+  } else if (avgFollowRate > 2.0) {
+    analysis += `• **フォロー率 ${avgFollowRate.toFixed(2)}%**: 標準的なエンゲージメント率です。\n`;
+  } else {
+    analysis += `• **フォロー率 ${avgFollowRate.toFixed(2)}%**: エンゲージメント向上の余地があります。\n`;
+  }
+  
+  analysis += `\n## 💡 改善提案\n\n`;
+  analysis += `1. **クリエイティブ最適化**: CTRを向上させるため、よりインパクトのあるビジュアルやキャッチコピーを試してみてください。\n`;
+  analysis += `2. **ターゲティング精度向上**: CPCを下げるため、より具体的なオーディエンス設定を検討してください。\n`;
+  analysis += `3. **A/Bテスト実施**: 複数の広告バリエーションをテストして最適な組み合わせを見つけてください。\n`;
+  analysis += `4. **配信タイミング最適化**: ターゲットオーディエンスがアクティブな時間帯での配信を強化してください。\n`;
+  analysis += `5. **ランディングページ改善**: コンバージョン率向上のため、LPの最適化も並行して実施してください。\n\n`;
+  
+  analysis += `## 📈 総合評価\n\n`;
+  analysis += `総キャンペーン数: ${summary.totalCampaigns}\n`;
+  analysis += `総消化金額: ¥${summary.totalSpend.toLocaleString()}\n`;
+  analysis += `総結果数: ${summary.totalResults.toLocaleString()}\n`;
+  analysis += `総フォロワー獲得: ${summary.totalFollowers.toLocaleString()}\n\n`;
+  analysis += `*この分析は基本的なデータ評価に基づいています。より詳細なAI分析が必要な場合は、しばらく時間をおいてから再度お試しください。*`;
+  
+  return analysis;
+}
 
 export default app
