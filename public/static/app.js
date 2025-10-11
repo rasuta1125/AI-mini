@@ -319,9 +319,9 @@ class AdAnalysisDashboard {
                         datasets: [{
                             label: 'CTR (%)',
                             data: topCampaigns.map(c => c.ctr),
-                            backgroundColor: 'rgba(102, 126, 234, 0.6)',
-                            borderColor: 'rgba(102, 126, 234, 1)',
-                            borderWidth: 1
+                            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                            borderColor: 'white',
+                            borderWidth: 2
                         }]
                     },
                     options: this.getChartOptions('CTR比較 (%)')
@@ -336,9 +336,9 @@ class AdAnalysisDashboard {
                         datasets: [{
                             label: 'CPA (¥)',
                             data: topCampaigns.map(c => c.cpa),
-                            backgroundColor: 'rgba(118, 75, 162, 0.6)',
-                            borderColor: 'rgba(118, 75, 162, 1)',
-                            borderWidth: 1
+                            backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                            borderColor: 'white',
+                            borderWidth: 2
                         }]
                     },
                     options: this.getChartOptions('CPA比較 (¥)')
@@ -355,9 +355,10 @@ class AdAnalysisDashboard {
                                 x: c.reach,
                                 y: c.followRate
                             })),
-                            backgroundColor: 'rgba(102, 126, 234, 0.6)',
-                            borderColor: 'rgba(102, 126, 234, 1)',
-                            pointRadius: 6
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            borderColor: 'white',
+                            pointRadius: 8,
+                            pointBorderWidth: 2
                         }]
                     },
                     options: {
@@ -367,19 +368,39 @@ class AdAnalysisDashboard {
                                 title: {
                                     display: true,
                                     text: 'リーチ',
-                                    color: 'rgba(255, 255, 255, 0.8)'
+                                    color: 'white',
+                                    font: { size: 14, weight: 'bold' }
                                 },
-                                ticks: { color: 'rgba(255, 255, 255, 0.8)' },
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                                ticks: { 
+                                    color: 'white',
+                                    font: { size: 12 }
+                                },
+                                grid: { 
+                                    color: 'rgba(255, 255, 255, 0.2)',
+                                    lineWidth: 1
+                                },
+                                border: {
+                                    color: 'white'
+                                }
                             },
                             y: {
                                 title: {
                                     display: true,
                                     text: 'フォロー率 (%)',
-                                    color: 'rgba(255, 255, 255, 0.8)'
+                                    color: 'white',
+                                    font: { size: 14, weight: 'bold' }
                                 },
-                                ticks: { color: 'rgba(255, 255, 255, 0.8)' },
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                                ticks: { 
+                                    color: 'white',
+                                    font: { size: 12 }
+                                },
+                                grid: { 
+                                    color: 'rgba(255, 255, 255, 0.2)',
+                                    lineWidth: 1
+                                },
+                                border: {
+                                    color: 'white'
+                                }
                             }
                         }
                     }
@@ -398,24 +419,46 @@ class AdAnalysisDashboard {
                 title: {
                     display: true,
                     text: title,
-                    color: 'rgba(255, 255, 255, 0.9)',
-                    font: { size: 16 }
+                    color: 'white',
+                    font: { 
+                        size: 18,
+                        weight: 'bold'
+                    }
                 },
                 legend: {
-                    labels: { color: 'rgba(255, 255, 255, 0.8)' }
+                    labels: { 
+                        color: 'white',
+                        font: { size: 14 }
+                    }
                 }
             },
             scales: {
                 x: {
                     ticks: { 
-                        color: 'rgba(255, 255, 255, 0.8)',
-                        maxRotation: 45
+                        color: 'white',
+                        maxRotation: 45,
+                        font: { size: 12 }
                     },
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    grid: { 
+                        color: 'rgba(255, 255, 255, 0.2)',
+                        lineWidth: 1
+                    },
+                    border: {
+                        color: 'white'
+                    }
                 },
                 y: {
-                    ticks: { color: 'rgba(255, 255, 255, 0.8)' },
-                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    ticks: { 
+                        color: 'white',
+                        font: { size: 12 }
+                    },
+                    grid: { 
+                        color: 'rgba(255, 255, 255, 0.2)',
+                        lineWidth: 1
+                    },
+                    border: {
+                        color: 'white'
+                    }
                 }
             }
         };

@@ -107,9 +107,16 @@ input[type="file"]:focus {
 
 /* Chart Container Enhancement */
 .chart-container {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.2);
   border-radius: 12px;
   padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Chart Canvas Styling */
+#performanceChart {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
 }
 
 /* Status Message Styles */

@@ -315,7 +315,7 @@ app.get('/', (c) => {
                         <i class="fas fa-chart-bar text-indigo-400 text-2xl mr-3"></i>
                         <h3 class="text-xl font-semibold text-white">グラフ分析</h3>
                     </div>
-                    <div class="h-64">
+                    <div class="h-64 chart-container">
                         <canvas id="performanceChart" class="w-full h-full"></canvas>
                     </div>
                     <div class="mt-4 flex justify-center space-x-2">
