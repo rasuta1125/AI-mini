@@ -28,6 +28,11 @@ class AdAnalysisDashboard {
 
         // Creative rankings global functions
         window.toggleCreativeDetail = this.toggleCreativeDetail.bind(this);
+        window.exportToCSV = this.exportToCSV.bind(this);
+
+        // CSV export button
+        const exportBtn = document.getElementById('exportBtn');
+        exportBtn?.addEventListener('click', this.exportToCSV.bind(this));
 
         // Tooltip functionality
         this.initializeTooltips();
@@ -955,6 +960,130 @@ class AdAnalysisDashboard {
                 detailElement.classList.add('expanded');
                 arrowElement.style.transform = 'rotate(180deg)';
             }
+        }
+    }
+
+    exportToCSV() {
+        if (!this.kpiData || !this.kpiData.campaigns || this.kpiData.campaigns.length === 0) {
+            alert('エクスポートするデータがありません。まずCSVをアップロードして分析を実行してください。');
+            return;
+        }
+
+        try {
+            // Calculate scores for all campaigns (same logic as updateCreativeRankings)
+            const campaignsWithScores = this.kpiData.campaigns.map(campaign => {
+                const ctrScore = Math.min(100, Math.max(0, (campaign.ctr / 3.0) * 100));
+                const followRateScore = Math.min(100, Math.max(0, (campaign.followRate / 2.0) * 100));
+                const costEfficiencyScore = Math.min(100, Math.max(0, (200 - campaign.cpc) / 200 * 100));
+                const totalScore = (ctrScore * 0.4) + (followRateScore * 0.3) + (costEfficiencyScore * 0.3);
+                
+                return {
+                    ...campaign,
+                    ctrScore: Math.round(ctrScore),
+                    followRateScore: Math.round(followRateScore),
+                    costEfficiencyScore: Math.round(costEfficiencyScore),
+                    totalScore: Math.round(totalScore * 10) / 10,
+                    ctrContribution: Math.round(ctrScore * 0.4 * 10) / 10,
+                    followRateContribution: Math.round(followRateScore * 0.3 * 10) / 10,
+                    costEfficiencyContribution: Math.round(costEfficiencyScore * 0.3 * 10) / 10
+                };
+            });
+
+            // Sort by total score
+            campaignsWithScores.sort((a, b) => b.totalScore - a.totalScore);
+
+            // Create CSV content
+            const csvHeaders = [
+                'ランキング',
+                'キャンペーン名',
+                '総合スコア',
+                '消化金額',
+                '結果数',
+                'フォロワー数',
+                'リーチ数',
+                'インプレッション数',
+                'CTR(%)',
+                'CPC(円)',
+                'CPA(円)',
+                'フォロー率(%)',
+                'CTRスコア(100点満点)',
+                'フォロー率スコア(100点満点)',
+                'コスト効率スコア(100点満点)',
+                'CTR貢献度(40%)',
+                'フォロー率貢献度(30%)',
+                'コスト効率貢献度(30%)'
+            ];
+
+            let csvContent = csvHeaders.join(',') + '\n';
+
+            campaignsWithScores.forEach((campaign, index) => {
+                const rank = index + 1;
+                const row = [
+                    rank,
+                    `"${campaign.name}"`,
+                    campaign.totalScore,
+                    Math.round(campaign.spend),
+                    Math.round(campaign.results),
+                    Math.round(campaign.followers),
+                    Math.round(campaign.reach),
+                    Math.round(campaign.impressions),
+                    campaign.ctr.toFixed(2),
+                    Math.round(campaign.cpc),
+                    Math.round(campaign.cpa),
+                    campaign.followRate.toFixed(2),
+                    campaign.ctrScore,
+                    campaign.followRateScore,
+                    campaign.costEfficiencyScore,
+                    campaign.ctrContribution,
+                    campaign.followRateContribution,
+                    campaign.costEfficiencyContribution
+                ];
+                csvContent += row.join(',') + '\n';
+            });
+
+            // Add summary statistics
+            csvContent += '\n\n=== サマリー統計 ===\n';
+            csvContent += `総キャンペーン数,${this.kpiData.totalCampaigns}\n`;
+            csvContent += `総消化金額,${Math.round(this.kpiData.totalSpend)}\n`;
+            csvContent += `総結果数,${Math.round(this.kpiData.totalResults)}\n`;
+            csvContent += `総フォロワー獲得,${Math.round(this.kpiData.totalFollowers)}\n`;
+            csvContent += `総リーチ,${Math.round(this.kpiData.totalReach)}\n`;
+            csvContent += `総インプレッション,${Math.round(this.kpiData.totalImpressions)}\n`;
+            csvContent += `平均CTR(%),${this.kpiData.avgCTR.toFixed(2)}\n`;
+            csvContent += `平均CPC(円),${Math.round(this.kpiData.avgCPC)}\n`;
+            csvContent += `平均CPA(円),${Math.round(this.kpiData.avgCPA)}\n`;
+            csvContent += `平均フォロー率(%),${this.kpiData.avgFollowRate.toFixed(2)}\n`;
+
+            // Add analysis timestamp
+            csvContent += `\n分析実行日時,${new Date().toLocaleString('ja-JP')}\n`;
+
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `AI広告分析結果_${new Date().toISOString().slice(0, 10)}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Show success message
+            const exportStatus = document.getElementById('exportStatus');
+            if (exportStatus) {
+                exportStatus.textContent = '✅ CSVファイルをダウンロードしました';
+                exportStatus.className = 'mt-2 text-sm text-green-300';
+                
+                setTimeout(() => {
+                    exportStatus.textContent = '';
+                }, 3000);
+            }
+
+        } catch (error) {
+            console.error('CSV Export Error:', error);
+            alert('CSVエクスポート中にエラーが発生しました。');
         }
     }
 }

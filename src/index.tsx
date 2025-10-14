@@ -495,9 +495,14 @@ app.get('/', (c) => {
                             <i class="fas fa-tachometer-alt text-blue-400 text-2xl mr-3"></i>
                             <h3 class="text-xl font-semibold text-white">主要KPI</h3>
                         </div>
-                        <button id="kpiHelpBtn" class="px-3 py-1 bg-blue-500/20 text-blue-200 rounded text-sm hover:bg-blue-500/30 transition-colors">
-                            <i class="fas fa-question-circle mr-1"></i>説明
-                        </button>
+                        <div class="flex space-x-2">
+                            <button id="exportBtn" class="px-3 py-1 bg-green-500/20 text-green-200 rounded text-sm hover:bg-green-500/30 transition-colors" title="分析結果をCSVでダウンロード">
+                                <i class="fas fa-download mr-1"></i>CSV出力
+                            </button>
+                            <button id="kpiHelpBtn" class="px-3 py-1 bg-blue-500/20 text-blue-200 rounded text-sm hover:bg-blue-500/30 transition-colors">
+                                <i class="fas fa-question-circle mr-1"></i>説明
+                            </button>
+                        </div>
                     </div>
                     <div id="kpiDisplay" class="grid grid-cols-2 gap-4">
                         <div class="text-center p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-help" title="クリック率 - 広告がクリックされた割合">
@@ -521,6 +526,7 @@ app.get('/', (c) => {
                             <div class="text-xs text-gray-400 mt-1">エンゲージメント</div>
                         </div>
                     </div>
+                    <div id="exportStatus" class="mt-4 text-sm text-gray-300"></div>
                 </div>
 
                 <!-- Card 3: Charts -->
@@ -558,6 +564,9 @@ app.get('/', (c) => {
                                 </div>
                             </div>
                         </div>
+                        <button onclick="exportToCSV()" class="px-3 py-1 bg-green-500/20 text-green-200 rounded text-sm hover:bg-green-500/30 transition-colors" title="ランキング結果をCSVでダウンロード">
+                            <i class="fas fa-file-csv mr-1"></i>CSV出力
+                        </button>
                     </div>
                     <div id="creativeRankings" class="space-y-3">
                         <div class="flex items-center justify-center py-8">
