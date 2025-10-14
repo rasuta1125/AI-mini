@@ -176,6 +176,98 @@ ${summary.campaigns.map((c, i) =>
   }
 });
 
+// KPI explanation endpoint
+app.get('/api/kpi-help', (c) => {
+  const kpiInfo = {
+    title: 'KPI指標の説明',
+    description: 'Meta広告分析で使用される主要指標の詳細解説',
+    metrics: [
+      {
+        name: 'CTR (Click Through Rate)',
+        japanese: 'クリック率',
+        definition: '広告が表示された回数に対して、実際にクリックされた割合を示す指標',
+        formula: 'CTR = (クリック数 ÷ インプレッション数) × 100',
+        example: '1,000回表示されて20回クリックされた場合、CTR = 2.0%',
+        goodRange: '1.5% - 3.0%',
+        importance: '広告の魅力度やターゲティング精度を測る重要な指標',
+        improvementTips: [
+          '魅力的な広告クリエイティブの作成',
+          'ターゲットオーディエンスの最適化', 
+          'キャッチコピーの改善',
+          'ビジュアル素材の品質向上'
+        ]
+      },
+      {
+        name: 'CPC (Cost Per Click)',
+        japanese: 'クリック単価',
+        definition: '1回のクリックを獲得するために必要な平均コスト',
+        formula: 'CPC = 総広告費 ÷ 総クリック数',
+        example: '10,000円の広告費で100クリック獲得した場合、CPC = 100円',
+        goodRange: '50円 - 200円（業界による）',
+        importance: '広告効率と予算管理の重要な指標',
+        improvementTips: [
+          '品質スコアの向上',
+          '入札戦略の最適化',
+          'キーワードやターゲティングの精度向上',
+          '広告ランクの改善'
+        ]
+      },
+      {
+        name: 'CPA (Cost Per Acquisition)',
+        japanese: '獲得単価・コンバージョン単価',
+        definition: '1件の成果（フォロー、購入等）を獲得するために必要な平均コスト',
+        formula: 'CPA = 総広告費 ÷ 総成果数',
+        example: '10,000円の広告費で50フォロー獲得した場合、CPA = 200円',
+        goodRange: '100円 - 500円（目標による）',
+        importance: 'ROI（投資収益率）の評価において最重要指標',
+        improvementTips: [
+          'ランディングページの最適化',
+          'オファーの魅力度向上',
+          'ターゲットユーザーの精緻化',
+          'コンバージョンファネルの改善'
+        ]
+      },
+      {
+        name: 'Follow Rate',
+        japanese: 'フォロー率',
+        definition: '広告にリーチしたユーザーの中で、実際にフォローしたユーザーの割合',
+        formula: 'フォロー率 = (新規フォロワー数 ÷ リーチ数) × 100',
+        example: '10,000人にリーチして100人がフォローした場合、フォロー率 = 1.0%',
+        goodRange: '0.5% - 2.0%',
+        importance: 'ブランド認知度とエンゲージメントの質を示す指標',
+        improvementTips: [
+          'ブランドメッセージの明確化',
+          'コンテンツ品質の向上',
+          'フォローするメリットの訴求',
+          'インフルエンサーとのコラボレーション'
+        ]
+      }
+    ],
+    benchmarks: {
+      title: '業界ベンチマーク',
+      note: '以下は一般的な目安値です。業界や商品によって大きく異なります。',
+      ranges: [
+        { metric: 'CTR', excellent: '3.0%以上', good: '1.5-3.0%', average: '0.8-1.5%', poor: '0.8%未満' },
+        { metric: 'CPC', excellent: '50円未満', good: '50-150円', average: '150-300円', poor: '300円以上' },
+        { metric: 'CPA', excellent: 'LTV*10%未満', good: 'LTV*10-20%', average: 'LTV*20-40%', poor: 'LTV*40%以上' },
+        { metric: 'フォロー率', excellent: '2.0%以上', good: '1.0-2.0%', average: '0.5-1.0%', poor: '0.5%未満' }
+      ]
+    },
+    optimization: {
+      title: '最適化のアプローチ',
+      steps: [
+        '1. 現在の各KPI値を業界ベンチマークと比較',
+        '2. 最も改善余地の大きい指標を特定',
+        '3. その指標に影響する要素を分析',
+        '4. A/Bテストで改善施策を検証',
+        '5. 継続的なモニタリングと調整'
+      ]
+    }
+  };
+
+  return c.json(kpiInfo);
+});
+
 // Health check endpoint
 app.get('/api/health', (c) => {
   return c.json({ status: 'healthy', timestamp: new Date().toISOString() });
@@ -307,6 +399,25 @@ app.get('/', (c) => {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
           }
+          
+          /* Tooltip Animation */
+          .tooltip-show {
+            opacity: 1 !important;
+            visibility: visible !important;
+            transform: translateY(0) !important;
+          }
+          
+          /* Accordion Animation */
+          .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+          }
+          
+          .accordion-content.expanded {
+            max-height: 500px;
+            transition: max-height 0.3s ease-in;
+          }
         </style>
         <link href="/static/style.css" rel="stylesheet">
     </head>
@@ -360,8 +471,8 @@ app.get('/', (c) => {
                 </div>
             </section>
 
-            <!-- 4 Card Layout -->
-            <section class="grid lg:grid-cols-2 gap-8">
+            <!-- 5 Card Layout -->
+            <section class="grid lg:grid-cols-2 xl:grid-cols-3 gap-8">
                 <!-- Card 1: CSV Upload -->
                 <div class="glass-card rounded-xl p-6 hover-scale">
                     <div class="flex items-center mb-6">
@@ -379,26 +490,35 @@ app.get('/', (c) => {
 
                 <!-- Card 2: KPI Display -->
                 <div class="glass-card rounded-xl p-6 hover-scale">
-                    <div class="flex items-center mb-6">
-                        <i class="fas fa-tachometer-alt text-blue-400 text-2xl mr-3"></i>
-                        <h3 class="text-xl font-semibold text-white">主要KPI</h3>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center">
+                            <i class="fas fa-tachometer-alt text-blue-400 text-2xl mr-3"></i>
+                            <h3 class="text-xl font-semibold text-white">主要KPI</h3>
+                        </div>
+                        <button id="kpiHelpBtn" class="px-3 py-1 bg-blue-500/20 text-blue-200 rounded text-sm hover:bg-blue-500/30 transition-colors">
+                            <i class="fas fa-question-circle mr-1"></i>説明
+                        </button>
                     </div>
                     <div id="kpiDisplay" class="grid grid-cols-2 gap-4">
-                        <div class="text-center p-4 bg-white/5 rounded-lg">
+                        <div class="text-center p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-help" title="クリック率 - 広告がクリックされた割合">
                             <div class="text-2xl font-bold text-purple-400" id="ctrValue">-</div>
                             <div class="text-sm text-gray-300">平均CTR</div>
+                            <div class="text-xs text-gray-400 mt-1">クリック率</div>
                         </div>
-                        <div class="text-center p-4 bg-white/5 rounded-lg">
+                        <div class="text-center p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-help" title="クリック単価 - 1クリックあたりの平均コスト">
                             <div class="text-2xl font-bold text-blue-400" id="cpcValue">-</div>
                             <div class="text-sm text-gray-300">平均CPC</div>
+                            <div class="text-xs text-gray-400 mt-1">クリック単価</div>
                         </div>
-                        <div class="text-center p-4 bg-white/5 rounded-lg">
+                        <div class="text-center p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-help" title="獲得単価 - 1フォロワー獲得あたりの平均コスト">
                             <div class="text-2xl font-bold text-indigo-400" id="cpaValue">-</div>
                             <div class="text-sm text-gray-300">平均CPA</div>
+                            <div class="text-xs text-gray-400 mt-1">獲得単価</div>
                         </div>
-                        <div class="text-center p-4 bg-white/5 rounded-lg">
+                        <div class="text-center p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-help" title="フォロー率 - リーチしたユーザーがフォローした割合">
                             <div class="text-2xl font-bold text-pink-400" id="followRateValue">-</div>
                             <div class="text-sm text-gray-300">フォロー率</div>
+                            <div class="text-xs text-gray-400 mt-1">エンゲージメント</div>
                         </div>
                     </div>
                 </div>
@@ -419,7 +539,37 @@ app.get('/', (c) => {
                     </div>
                 </div>
 
-                <!-- Card 4: AI Analysis -->
+                <!-- Card 4: Creative Rankings -->
+                <div class="glass-card rounded-xl p-6 hover-scale">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center">
+                            <i class="fas fa-trophy text-yellow-400 text-2xl mr-3"></i>
+                            <h3 class="text-xl font-semibold text-white">クリエイティブランキング</h3>
+                            <div class="relative ml-2">
+                                <i class="fas fa-info-circle text-gray-400 text-sm cursor-help" id="rankingTooltipTrigger"></i>
+                                <div id="rankingTooltip" class="absolute left-6 top-0 w-80 bg-gray-900/95 backdrop-blur-sm text-white text-sm rounded-lg p-4 shadow-xl border border-gray-600 z-50 opacity-0 invisible transition-all duration-300 transform translate-y-2">
+                                    <div class="font-semibold mb-2">▼ 総合パフォーマンススコアの内訳</div>
+                                    <p class="mb-3">このランキングは、以下の3つの指標を総合的に評価して算出されています。</p>
+                                    <ul class="space-y-1">
+                                        <li><strong>• CTR (クリック率): 40%</strong><br>　広告がユーザーの興味を惹いたか</li>
+                                        <li><strong>• フォロー率: 30%</strong><br>　広告から効率的にフォロワーを獲得できたか</li>
+                                        <li><strong>• コスト効率 (CPC): 30%</strong><br>　クリックを安く獲得できたか</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="creativeRankings" class="space-y-3">
+                        <div class="flex items-center justify-center py-8">
+                            <div class="text-center">
+                                <i class="fas fa-chart-line text-4xl text-gray-500 mb-4"></i>
+                                <p>CSVをアップロードしてランキングを表示</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 5: AI Analysis -->
                 <div class="glass-card rounded-xl p-6 hover-scale">
                     <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center">

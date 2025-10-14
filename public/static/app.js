@@ -19,8 +19,21 @@ class AdAnalysisDashboard {
         uploadBtn?.addEventListener('click', this.uploadAndAnalyzeCSV.bind(this));
         analyzeBtn?.addEventListener('click', this.performAIAnalysis.bind(this));
 
+        // KPI help button
+        const kpiHelpBtn = document.getElementById('kpiHelpBtn');
+        kpiHelpBtn?.addEventListener('click', this.showKPIHelp.bind(this));
+
         // Chart type switching
         window.switchChart = this.switchChart.bind(this);
+
+        // Creative rankings global functions
+        window.toggleCreativeDetail = this.toggleCreativeDetail.bind(this);
+
+        // Tooltip functionality
+        this.initializeTooltips();
+
+        // Modal close functionality
+        this.initializeModalListeners();
     }
 
     handleFileSelect(event) {
@@ -280,6 +293,114 @@ class AdAnalysisDashboard {
         document.getElementById('cpcValue').textContent = `¥${Math.round(this.kpiData.avgCPC).toLocaleString()}`;
         document.getElementById('cpaValue').textContent = `¥${Math.round(this.kpiData.avgCPA).toLocaleString()}`;
         document.getElementById('followRateValue').textContent = `${this.kpiData.avgFollowRate.toFixed(2)}%`;
+        
+        // Update creative rankings
+        this.updateCreativeRankings();
+    }
+
+    updateCreativeRankings() {
+        const creativeRankings = document.getElementById('creativeRankings');
+        
+        if (!this.kpiData.campaigns || this.kpiData.campaigns.length === 0) {
+            creativeRankings.innerHTML = `
+                <div class="flex items-center justify-center py-8">
+                    <div class="text-center">
+                        <i class="fas fa-chart-line text-4xl text-gray-500 mb-4"></i>
+                        <p>CSVをアップロードしてランキングを表示</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        // Calculate performance scores for each campaign
+        const campaignsWithScores = this.kpiData.campaigns.map(campaign => {
+            // Calculate individual scores (0-100 scale)
+            const ctrScore = Math.min(100, Math.max(0, (campaign.ctr / 3.0) * 100)); // 3.0% = 100 points
+            const followRateScore = Math.min(100, Math.max(0, (campaign.followRate / 2.0) * 100)); // 2.0% = 100 points
+            const costEfficiencyScore = Math.min(100, Math.max(0, (200 - campaign.cpc) / 200 * 100)); // ¥200以下が良好
+            
+            // Calculate weighted total score
+            const totalScore = (ctrScore * 0.4) + (followRateScore * 0.3) + (costEfficiencyScore * 0.3);
+            
+            return {
+                ...campaign,
+                ctrScore: Math.round(ctrScore),
+                followRateScore: Math.round(followRateScore),
+                costEfficiencyScore: Math.round(costEfficiencyScore),
+                totalScore: Math.round(totalScore * 10) / 10 // 1decimal place
+            };
+        });
+
+        // Sort by total score (highest first)
+        campaignsWithScores.sort((a, b) => b.totalScore - a.totalScore);
+
+        // Take top 5 campaigns
+        const top5Campaigns = campaignsWithScores.slice(0, 5);
+
+        let html = '';
+        top5Campaigns.forEach((campaign, index) => {
+            const rank = index + 1;
+            const rankIcon = rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : `${rank}位`;
+            const scoreColor = campaign.totalScore >= 80 ? 'text-green-400' : 
+                              campaign.totalScore >= 60 ? 'text-yellow-400' : 'text-red-400';
+
+            html += `
+                <div class="creative-item bg-white/5 rounded-lg p-4 border border-white/10 hover:bg-white/10 transition-colors">
+                    <div class="flex items-center justify-between cursor-pointer" onclick="toggleCreativeDetail('${index}')">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-lg font-bold text-white">${rankIcon}</span>
+                            <div>
+                                <div class="font-semibold text-white">${campaign.name}</div>
+                                <div class="text-xs text-gray-400">スコア: <span class="${scoreColor}">${campaign.totalScore}点</span></div>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-down text-gray-400 transition-transform duration-300" id="arrow-${index}"></i>
+                    </div>
+                    <div class="accordion-content mt-4" id="detail-${index}">
+                        <div class="bg-white/5 rounded-lg p-4">
+                            <div class="text-sm font-semibold text-white mb-3">
+                                ▼ ${campaign.name} (スコア: ${campaign.totalScore}点) の内訳
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="border-b border-gray-600">
+                                            <th class="text-left py-2 text-gray-300">評価項目</th>
+                                            <th class="text-left py-2 text-gray-300">生データ</th>
+                                            <th class="text-left py-2 text-gray-300">スコア (100点満点換算)</th>
+                                            <th class="text-left py-2 text-gray-300">最終スコアへの貢献度</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="text-gray-200">
+                                        <tr>
+                                            <td class="py-2 font-semibold">CTR (40%)</td>
+                                            <td class="py-2">${campaign.ctr.toFixed(2)}%</td>
+                                            <td class="py-2">${campaign.ctrScore}点</td>
+                                            <td class="py-2 font-semibold text-purple-400">${(campaign.ctrScore * 0.4).toFixed(1)}点</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 font-semibold">フォロー率 (30%)</td>
+                                            <td class="py-2">${campaign.followRate.toFixed(2)}%</td>
+                                            <td class="py-2">${campaign.followRateScore}点</td>
+                                            <td class="py-2 font-semibold text-blue-400">${(campaign.followRateScore * 0.3).toFixed(1)}点</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 font-semibold">コスト効率 (30%)</td>
+                                            <td class="py-2">¥${Math.round(campaign.cpc)}</td>
+                                            <td class="py-2">${campaign.costEfficiencyScore}点</td>
+                                            <td class="py-2 font-semibold text-green-400">${(campaign.costEfficiencyScore * 0.3).toFixed(1)}点</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        creativeRankings.innerHTML = html;
     }
 
     createChart() {
@@ -606,6 +727,235 @@ class AdAnalysisDashboard {
             return '<i class="fas fa-lightbulb text-blue-400 mr-2"></i>';
         }
         return '<i class="fas fa-chart-line text-purple-400 mr-2"></i>';
+    }
+
+    initializeModalListeners() {
+        // Close modal when clicking outside or on close button
+        document.addEventListener('click', (event) => {
+            const modal = document.getElementById('kpiModal');
+            const modalContent = modal?.querySelector('.modal-content');
+            
+            if (modal && modal.classList.contains('active')) {
+                // Close if clicking outside modal content or on close button
+                if (!modalContent?.contains(event.target) || event.target.classList.contains('modal-close')) {
+                    this.closeKPIModal();
+                }
+            }
+        });
+
+        // Close modal with escape key
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                this.closeKPIModal();
+            }
+        });
+    }
+
+    async showKPIHelp() {
+        try {
+            const response = await axios.get('/api/kpi-help');
+            
+            if (response.data) {
+                this.displayKPIModal(response.data);
+            }
+        } catch (error) {
+            console.error('KPI Help Error:', error);
+            // Show fallback help even if API fails
+            this.displayKPIModal(this.getFallbackKPIInfo());
+        }
+    }
+
+    displayKPIModal(kpiInfo) {
+        // Create modal if it doesn't exist
+        let modal = document.getElementById('kpiModal');
+        if (!modal) {
+            modal = this.createKPIModal();
+            document.body.appendChild(modal);
+        }
+
+        // Populate modal content
+        const modalTitle = modal.querySelector('.modal-title');
+        const modalBody = modal.querySelector('.modal-body');
+
+        modalTitle.textContent = kpiInfo.title;
+
+        let html = `<p class="text-gray-300 mb-6">${kpiInfo.description}</p>`;
+
+        kpiInfo.metrics.forEach(metric => {
+            html += `
+                <div class="bg-white/5 rounded-lg p-4 mb-4 border border-white/10">
+                    <h4 class="text-lg font-semibold text-white mb-2 flex items-center">
+                        <i class="fas fa-chart-bar text-purple-400 mr-2"></i>
+                        ${metric.name}
+                        <span class="text-sm text-gray-400 ml-2">(${metric.japanese})</span>
+                    </h4>
+                    
+                    <div class="text-gray-200 mb-3">
+                        ${metric.definition}
+                    </div>
+                    
+                    <div class="bg-white/5 rounded p-3 mb-3">
+                        <div class="text-sm text-purple-300 font-mono">
+                            <i class="fas fa-calculator mr-2"></i>
+                            ${metric.formula}
+                        </div>
+                    </div>
+                    
+                    <div class="text-sm text-gray-300 mb-3">
+                        <i class="fas fa-lightbulb text-yellow-400 mr-2"></i>
+                        <strong>例：</strong> ${metric.example}
+                    </div>
+                    
+                    ${metric.benchmark ? `
+                        <div class="text-sm text-blue-300 mb-2">
+                            <i class="fas fa-target text-blue-400 mr-2"></i>
+                            <strong>ベンチマーク：</strong> ${metric.benchmark}
+                        </div>
+                    ` : ''}
+                    
+                    ${metric.improvementTips ? `
+                        <div class="text-sm text-green-300">
+                            <i class="fas fa-arrow-up text-green-400 mr-2"></i>
+                            <strong>改善のヒント：</strong> ${metric.improvementTips}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+
+        modalBody.innerHTML = html;
+        
+        // Show modal
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    }
+
+    createKPIModal() {
+        const modal = document.createElement('div');
+        modal.id = 'kpiModal';
+        modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 opacity-0 invisible transition-all duration-300';
+        
+        modal.innerHTML = `
+            <div class="modal-content bg-gradient-to-br from-purple-900/90 to-blue-900/90 backdrop-blur-md rounded-xl p-6 max-w-4xl max-h-[90vh] overflow-y-auto border border-white/20 shadow-2xl transform scale-95 transition-transform duration-300">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="modal-title text-2xl font-bold text-white"></h3>
+                    <button class="modal-close text-gray-400 hover:text-white transition-colors">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="modal-body"></div>
+            </div>
+        `;
+
+        // Add CSS for active state
+        const style = document.createElement('style');
+        style.textContent = `
+            #kpiModal.active {
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+            #kpiModal.active .modal-content {
+                transform: scale(1) !important;
+            }
+        `;
+        document.head.appendChild(style);
+
+        return modal;
+    }
+
+    closeKPIModal() {
+        const modal = document.getElementById('kpiModal');
+        if (modal && modal.classList.contains('active')) {
+            modal.classList.remove('active');
+            document.body.style.overflow = ''; // Restore scrolling
+        }
+    }
+
+    getFallbackKPIInfo() {
+        return {
+            title: 'KPI指標の説明',
+            description: 'Meta広告分析で使用される主要指標の詳細解説',
+            metrics: [
+                {
+                    name: 'CTR (Click Through Rate)',
+                    japanese: 'クリック率',
+                    definition: '広告が表示された回数に対して、実際にクリックされた割合を示す指標',
+                    formula: 'CTR = (クリック数 ÷ インプレッション数) × 100',
+                    example: '1,000回表示されて20回クリックされた場合、CTR = 2.0%',
+                    benchmark: '一般的に1-3%が良好とされる',
+                    improvementTips: 'クリエイティブの魅力向上、ターゲティングの最適化'
+                },
+                {
+                    name: 'CPC (Cost Per Click)',
+                    japanese: 'クリック単価',
+                    definition: '1回のクリックを獲得するために要した平均コスト',
+                    formula: 'CPC = 消化金額 ÷ クリック数',
+                    example: '10,000円で50クリック獲得した場合、CPC = 200円',
+                    benchmark: '業界により異なるが、50-500円程度',
+                    improvementTips: '品質スコアの向上、入札戦略の最適化'
+                },
+                {
+                    name: 'CPA (Cost Per Acquisition)',
+                    japanese: 'フォロワー獲得単価',
+                    definition: '1人のフォロワーを獲得するために要した平均コスト',
+                    formula: 'CPA = 消化金額 ÷ フォロワー数',
+                    example: '20,000円で100フォロワー獲得した場合、CPA = 200円',
+                    benchmark: 'SNS広告では100-300円程度が目安',
+                    improvementTips: 'ランディングページの最適化、オーディエンスの精度向上'
+                },
+                {
+                    name: 'Follow Rate',
+                    japanese: 'フォロー率',
+                    definition: 'リーチした人数に対して、実際にフォローした人の割合',
+                    formula: 'Follow Rate = (フォロワー数 ÷ リーチ数) × 100',
+                    example: '10,000人にリーチして500人がフォローした場合、Follow Rate = 5.0%',
+                    benchmark: '3-7%が良好な範囲',
+                    improvementTips: 'アカウントの魅力度向上、コンテンツ品質の向上'
+                }
+            ]
+        };
+    }
+
+    initializeTooltips() {
+        const tooltipTrigger = document.getElementById('rankingTooltipTrigger');
+        const tooltip = document.getElementById('rankingTooltip');
+        
+        if (tooltipTrigger && tooltip) {
+            tooltipTrigger.addEventListener('mouseenter', () => {
+                tooltip.classList.add('tooltip-show');
+            });
+            
+            tooltipTrigger.addEventListener('mouseleave', () => {
+                tooltip.classList.remove('tooltip-show');
+            });
+        }
+    }
+
+    toggleCreativeDetail(index) {
+        const detailElement = document.getElementById(`detail-${index}`);
+        const arrowElement = document.getElementById(`arrow-${index}`);
+        
+        if (detailElement && arrowElement) {
+            const isExpanded = detailElement.classList.contains('expanded');
+            
+            if (isExpanded) {
+                // Close
+                detailElement.classList.remove('expanded');
+                arrowElement.style.transform = 'rotate(0deg)';
+            } else {
+                // Close all other details first
+                document.querySelectorAll('.accordion-content').forEach(el => {
+                    el.classList.remove('expanded');
+                });
+                document.querySelectorAll('[id^="arrow-"]').forEach(el => {
+                    el.style.transform = 'rotate(0deg)';
+                });
+                
+                // Open this one
+                detailElement.classList.add('expanded');
+                arrowElement.style.transform = 'rotate(180deg)';
+            }
+        }
     }
 }
 
