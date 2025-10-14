@@ -995,7 +995,25 @@ class AdAnalysisDashboard {
             // Sort by total score
             campaignsWithScores.sort((a, b) => b.totalScore - a.totalScore);
 
-            // Create CSV content
+            // Helper function for proper CSV escaping
+            const escapeCSVField = (field) => {
+                if (field === null || field === undefined) {
+                    return '';
+                }
+                let str = String(field);
+                // Replace any internal quotes with double quotes
+                str = str.replace(/"/g, '""');
+                // Remove line breaks and tabs that can break CSV structure
+                str = str.replace(/[\r\n\t]/g, ' ');
+                // Always quote text fields to ensure proper parsing
+                if (typeof field === 'string' || str.includes(',') || str.includes('"') || str.includes(' ')) {
+                    return `"${str}"`;
+                }
+                return str;
+            };
+
+            // Create CSV content with BOM for Excel compatibility
+            const BOM = '\uFEFF';
             const csvHeaders = [
                 'ランキング',
                 'キャンペーン名',
@@ -1017,13 +1035,13 @@ class AdAnalysisDashboard {
                 'コスト効率貢献度(30%)'
             ];
 
-            let csvContent = csvHeaders.join(',') + '\n';
+            let csvContent = BOM + csvHeaders.map(header => escapeCSVField(header)).join(',') + '\r\n';
 
             campaignsWithScores.forEach((campaign, index) => {
                 const rank = index + 1;
                 const row = [
                     rank,
-                    `"${campaign.name}"`,
+                    campaign.name, // Use escapeCSVField function instead of manual quoting
                     campaign.totalScore,
                     Math.round(campaign.spend),
                     Math.round(campaign.results),
@@ -1041,50 +1059,53 @@ class AdAnalysisDashboard {
                     campaign.followRateContribution,
                     campaign.costEfficiencyContribution
                 ];
-                csvContent += row.join(',') + '\n';
+                csvContent += row.map(field => escapeCSVField(field)).join(',') + '\r\n';
             });
 
-            // Add summary statistics
-            csvContent += '\n\n=== サマリー統計 ===\n';
-            csvContent += `総キャンペーン数,${this.kpiData.totalCampaigns}\n`;
-            csvContent += `総消化金額,${Math.round(this.kpiData.totalSpend)}\n`;
-            csvContent += `総結果数,${Math.round(this.kpiData.totalResults)}\n`;
-            csvContent += `総フォロワー獲得,${Math.round(this.kpiData.totalFollowers)}\n`;
-            csvContent += `総リーチ,${Math.round(this.kpiData.totalReach)}\n`;
-            csvContent += `総インプレッション,${Math.round(this.kpiData.totalImpressions)}\n`;
-            csvContent += `平均CTR(%),${this.kpiData.avgCTR.toFixed(2)}\n`;
-            csvContent += `平均CPC(円),${Math.round(this.kpiData.avgCPC)}\n`;
-            csvContent += `平均CPA(円),${Math.round(this.kpiData.avgCPA)}\n`;
-            csvContent += `平均フォロー率(%),${this.kpiData.avgFollowRate.toFixed(2)}\n`;
+            // Add separator for summary section
+            csvContent += '\r\n';
+            csvContent += escapeCSVField('=== サマリー統計 ===') + '\r\n';
+            csvContent += escapeCSVField('総キャンペーン数') + ',' + escapeCSVField(this.kpiData.totalCampaigns) + '\r\n';
+            csvContent += escapeCSVField('総消化金額') + ',' + escapeCSVField(Math.round(this.kpiData.totalSpend)) + '\r\n';
+            csvContent += escapeCSVField('総結果数') + ',' + escapeCSVField(Math.round(this.kpiData.totalResults)) + '\r\n';
+            csvContent += escapeCSVField('総フォロワー獲得') + ',' + escapeCSVField(Math.round(this.kpiData.totalFollowers)) + '\r\n';
+            csvContent += escapeCSVField('総リーチ') + ',' + escapeCSVField(Math.round(this.kpiData.totalReach)) + '\r\n';
+            csvContent += escapeCSVField('総インプレッション') + ',' + escapeCSVField(Math.round(this.kpiData.totalImpressions)) + '\r\n';
+            csvContent += escapeCSVField('平均CTR(%)') + ',' + escapeCSVField(this.kpiData.avgCTR.toFixed(2)) + '\r\n';
+            csvContent += escapeCSVField('平均CPC(円)') + ',' + escapeCSVField(Math.round(this.kpiData.avgCPC)) + '\r\n';
+            csvContent += escapeCSVField('平均CPA(円)') + ',' + escapeCSVField(Math.round(this.kpiData.avgCPA)) + '\r\n';
+            csvContent += escapeCSVField('平均フォロー率(%)') + ',' + escapeCSVField(this.kpiData.avgFollowRate.toFixed(2)) + '\r\n';
 
             // Add AI analysis if available
             if (this.aiAnalysisResult) {
-                csvContent += '\n\n=== AI分析コメント ===\n';
+                csvContent += '\r\n';
+                csvContent += escapeCSVField('=== AI分析コメント ===') + '\r\n';
                 
                 // Clean and format AI analysis text
                 const cleanAnalysis = this.aiAnalysisResult
-                    .replace(/\n/g, ' ')  // Replace line breaks with spaces
-                    .replace(/"/g, '""'); // Escape quotes for CSV
+                    .replace(/[\r\n\t]/g, ' ')  // Replace line breaks and tabs with spaces
+                    .trim();
                 
-                csvContent += `"${cleanAnalysis}"\n`;
+                csvContent += escapeCSVField(cleanAnalysis) + '\r\n';
                 
                 // Parse structured sections if available
                 const sections = this.parseAnalysisText(this.aiAnalysisResult);
                 if (sections.length > 0) {
-                    csvContent += '\n=== AI分析詳細 ===\n';
+                    csvContent += '\r\n' + escapeCSVField('=== AI分析詳細 ===') + '\r\n';
                     sections.forEach(section => {
-                        const cleanTitle = section.title.replace(/"/g, '""');
-                        const cleanContent = section.content.replace(/\n/g, ' ').replace(/"/g, '""');
-                        csvContent += `"${cleanTitle}","${cleanContent}"\n`;
+                        const cleanTitle = section.title.replace(/[\r\n\t]/g, ' ').trim();
+                        const cleanContent = section.content.replace(/[\r\n\t]/g, ' ').trim();
+                        csvContent += escapeCSVField(cleanTitle) + ',' + escapeCSVField(cleanContent) + '\r\n';
                     });
                 }
             } else {
-                csvContent += '\n\n=== AI分析コメント ===\n';
-                csvContent += '"AI分析が実行されていません。AI分析実行ボタンをクリックしてから再度エクスポートしてください。"\n';
+                csvContent += '\r\n';
+                csvContent += escapeCSVField('=== AI分析コメント ===') + '\r\n';
+                csvContent += escapeCSVField('AI分析が実行されていません。AI分析実行ボタンをクリックしてから再度エクスポートしてください。') + '\r\n';
             }
 
             // Add analysis timestamp
-            csvContent += `\n分析実行日時,${new Date().toLocaleString('ja-JP')}\n`;
+            csvContent += '\r\n' + escapeCSVField('分析実行日時') + ',' + escapeCSVField(new Date().toLocaleString('ja-JP')) + '\r\n';
 
             // Create and download file
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1123,30 +1144,45 @@ class AdAnalysisDashboard {
         }
 
         try {
-            // Create CSV content focused on AI analysis
-            let csvContent = '=== AI広告分析レポート ===\n\n';
+            // Helper function for proper CSV escaping (same as main export)
+            const escapeCSVField = (field) => {
+                if (field === null || field === undefined) {
+                    return '';
+                }
+                let str = String(field);
+                str = str.replace(/"/g, '""');
+                str = str.replace(/[\r\n\t]/g, ' ');
+                if (typeof field === 'string' || str.includes(',') || str.includes('"') || str.includes(' ')) {
+                    return `"${str}"`;
+                }
+                return str;
+            };
+
+            // Create CSV content focused on AI analysis with BOM
+            const BOM = '\uFEFF';
+            let csvContent = BOM + escapeCSVField('=== AI広告分析レポート ===') + '\r\n\r\n';
             
             // Add basic KPI summary
             if (this.kpiData) {
-                csvContent += '=== 基本データサマリー ===\n';
-                csvContent += `総キャンペーン数,${this.kpiData.totalCampaigns}\n`;
-                csvContent += `総消化金額,${Math.round(this.kpiData.totalSpend).toLocaleString()}円\n`;
-                csvContent += `総結果数,${Math.round(this.kpiData.totalResults).toLocaleString()}\n`;
-                csvContent += `総フォロワー獲得,${Math.round(this.kpiData.totalFollowers).toLocaleString()}\n`;
-                csvContent += `平均CTR,${this.kpiData.avgCTR.toFixed(2)}%\n`;
-                csvContent += `平均CPC,${Math.round(this.kpiData.avgCPC).toLocaleString()}円\n`;
-                csvContent += `平均CPA,${Math.round(this.kpiData.avgCPA).toLocaleString()}円\n`;
-                csvContent += `平均フォロー率,${this.kpiData.avgFollowRate.toFixed(2)}%\n\n`;
+                csvContent += escapeCSVField('=== 基本データサマリー ===') + '\r\n';
+                csvContent += escapeCSVField('総キャンペーン数') + ',' + escapeCSVField(this.kpiData.totalCampaigns) + '\r\n';
+                csvContent += escapeCSVField('総消化金額') + ',' + escapeCSVField(Math.round(this.kpiData.totalSpend).toLocaleString() + '円') + '\r\n';
+                csvContent += escapeCSVField('総結果数') + ',' + escapeCSVField(Math.round(this.kpiData.totalResults).toLocaleString()) + '\r\n';
+                csvContent += escapeCSVField('総フォロワー獲得') + ',' + escapeCSVField(Math.round(this.kpiData.totalFollowers).toLocaleString()) + '\r\n';
+                csvContent += escapeCSVField('平均CTR') + ',' + escapeCSVField(this.kpiData.avgCTR.toFixed(2) + '%') + '\r\n';
+                csvContent += escapeCSVField('平均CPC') + ',' + escapeCSVField(Math.round(this.kpiData.avgCPC).toLocaleString() + '円') + '\r\n';
+                csvContent += escapeCSVField('平均CPA') + ',' + escapeCSVField(Math.round(this.kpiData.avgCPA).toLocaleString() + '円') + '\r\n';
+                csvContent += escapeCSVField('平均フォロー率') + ',' + escapeCSVField(this.kpiData.avgFollowRate.toFixed(2) + '%') + '\r\n\r\n';
             }
 
             // Parse and structure AI analysis
             const sections = this.parseAnalysisText(this.aiAnalysisResult);
             
             if (sections.length > 0) {
-                csvContent += '=== AI分析詳細レポート ===\n';
+                csvContent += escapeCSVField('=== AI分析詳細レポート ===') + '\r\n';
                 
                 sections.forEach((section, index) => {
-                    csvContent += `\n[${index + 1}] ${section.title}\n`;
+                    csvContent += '\r\n' + escapeCSVField(`[${index + 1}] ${section.title}`) + '\r\n';
                     
                     // Split content into bullet points for better readability
                     const points = section.content.split('\n').filter(line => line.trim());
@@ -1155,37 +1191,47 @@ class AdAnalysisDashboard {
                             // Clean and format each point
                             const cleanPoint = point.trim().replace(/^[•\-\*]\s*/, '');
                             if (cleanPoint) {
-                                csvContent += `"${cleanPoint.replace(/"/g, '""')}"\n`;
+                                csvContent += escapeCSVField(cleanPoint) + '\r\n';
                             }
                         }
                     });
                 });
             } else {
                 // Fallback: use raw analysis text
-                csvContent += '=== AI分析コメント ===\n';
-                const cleanAnalysis = this.aiAnalysisResult.replace(/"/g, '""');
-                csvContent += `"${cleanAnalysis}"\n`;
+                csvContent += escapeCSVField('=== AI分析コメント ===') + '\r\n';
+                const cleanAnalysis = this.aiAnalysisResult.replace(/[\r\n\t]/g, ' ').trim();
+                csvContent += escapeCSVField(cleanAnalysis) + '\r\n';
             }
 
             // Add top performing campaigns summary
             if (this.kpiData && this.kpiData.campaigns) {
-                csvContent += '\n=== トップパフォーマンスキャンペーン ===\n';
+                csvContent += '\r\n' + escapeCSVField('=== トップパフォーマンスキャンペーン ===') + '\r\n';
                 
                 const topCampaigns = this.kpiData.campaigns
                     .sort((a, b) => b.spend - a.spend)
                     .slice(0, 5);
 
-                csvContent += 'ランキング,キャンペーン名,消化金額,CTR(%),CPC(円),フォロー率(%)\n';
+                const campaignHeaders = ['ランキング', 'キャンペーン名', '消化金額', 'CTR(%)', 'CPC(円)', 'フォロー率(%)'];
+                csvContent += campaignHeaders.map(h => escapeCSVField(h)).join(',') + '\r\n';
+                
                 topCampaigns.forEach((campaign, index) => {
-                    csvContent += `${index + 1},"${campaign.name}",${Math.round(campaign.spend)},${campaign.ctr.toFixed(2)},${Math.round(campaign.cpc)},${campaign.followRate.toFixed(2)}\n`;
+                    const campaignRow = [
+                        index + 1,
+                        campaign.name,
+                        Math.round(campaign.spend),
+                        campaign.ctr.toFixed(2),
+                        Math.round(campaign.cpc),
+                        campaign.followRate.toFixed(2)
+                    ];
+                    csvContent += campaignRow.map(field => escapeCSVField(field)).join(',') + '\r\n';
                 });
             }
 
             // Add analysis metadata
-            csvContent += '\n=== 分析メタデータ ===\n';
-            csvContent += `分析実行日時,${new Date().toLocaleString('ja-JP')}\n`;
-            csvContent += `分析エンジン,OpenAI GPT-3.5-turbo\n`;
-            csvContent += `レポート作成者,AI広告分析ink\n`;
+            csvContent += '\r\n' + escapeCSVField('=== 分析メタデータ ===') + '\r\n';
+            csvContent += escapeCSVField('分析実行日時') + ',' + escapeCSVField(new Date().toLocaleString('ja-JP')) + '\r\n';
+            csvContent += escapeCSVField('分析エンジン') + ',' + escapeCSVField('OpenAI GPT-3.5-turbo') + '\r\n';
+            csvContent += escapeCSVField('レポート作成者') + ',' + escapeCSVField('AI広告分析ink') + '\r\n';
 
             // Create and download file
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

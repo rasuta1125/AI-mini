@@ -496,7 +496,7 @@ app.get('/', (c) => {
                             <h3 class="text-xl font-semibold text-white">主要KPI</h3>
                         </div>
                         <div class="flex space-x-2">
-                            <button id="exportBtn" class="px-3 py-1 bg-green-500/20 text-green-200 rounded text-sm hover:bg-green-500/30 transition-colors" title="分析結果をCSVでダウンロード">
+                            <button id="exportBtn" class="px-3 py-1 bg-green-500/20 text-green-200 rounded text-sm hover:bg-green-500/30 transition-colors" title="Excel/Google Sheets対応の高互換性CSVファイルをダウンロード">
                                 <i class="fas fa-download mr-1"></i>CSV出力
                             </button>
                             <button id="kpiHelpBtn" class="px-3 py-1 bg-blue-500/20 text-blue-200 rounded text-sm hover:bg-blue-500/30 transition-colors">
@@ -564,7 +564,7 @@ app.get('/', (c) => {
                                 </div>
                             </div>
                         </div>
-                        <button onclick="exportToCSV()" class="px-3 py-1 bg-green-500/20 text-green-200 rounded text-sm hover:bg-green-500/30 transition-colors" title="ランキング結果をCSVでダウンロード">
+                        <button onclick="exportToCSV()" class="px-3 py-1 bg-green-500/20 text-green-200 rounded text-sm hover:bg-green-500/30 transition-colors" title="Excel/Google Sheets対応ランキングCSVをダウンロード">
                             <i class="fas fa-file-csv mr-1"></i>CSV出力
                         </button>
                     </div>
@@ -586,7 +586,7 @@ app.get('/', (c) => {
                             <h3 class="text-xl font-semibold text-white">AI分析コメント</h3>
                         </div>
                         <div class="flex space-x-2">
-                            <button onclick="exportAIAnalysisToCSV()" class="px-3 py-1 bg-green-500/20 text-green-200 rounded text-sm hover:bg-green-500/30 transition-colors" title="AI分析結果をCSVでダウンロード">
+                            <button onclick="exportAIAnalysisToCSV()" class="px-3 py-1 bg-green-500/20 text-green-200 rounded text-sm hover:bg-green-500/30 transition-colors" title="Excel/Google Sheets対応AI分析レポートCSVをダウンロード">
                                 <i class="fas fa-file-csv mr-1"></i>CSV出力
                             </button>
                             <button id="analyzeBtn" class="px-4 py-2 btn-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-300" disabled>
