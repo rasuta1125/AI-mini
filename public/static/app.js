@@ -3,6 +3,7 @@ class AdAnalysisDashboard {
     constructor() {
         this.csvData = [];
         this.kpiData = {};
+        this.aiAnalysisResult = null; // Store AI analysis result
         this.chart = null;
         this.currentChartType = 'ctr';
         
@@ -29,6 +30,7 @@ class AdAnalysisDashboard {
         // Creative rankings global functions
         window.toggleCreativeDetail = this.toggleCreativeDetail.bind(this);
         window.exportToCSV = this.exportToCSV.bind(this);
+        window.exportAIAnalysisToCSV = this.exportAIAnalysisToCSV.bind(this);
 
         // CSV export button
         const exportBtn = document.getElementById('exportBtn');
@@ -620,6 +622,7 @@ class AdAnalysisDashboard {
             });
 
             if (response.data.success) {
+                this.aiAnalysisResult = response.data.analysis; // Store AI analysis result
                 this.displayAIAnalysis(response.data.analysis);
             } else {
                 throw new Error(response.data.error || 'AI分析に失敗しました');
@@ -1054,6 +1057,32 @@ class AdAnalysisDashboard {
             csvContent += `平均CPA(円),${Math.round(this.kpiData.avgCPA)}\n`;
             csvContent += `平均フォロー率(%),${this.kpiData.avgFollowRate.toFixed(2)}\n`;
 
+            // Add AI analysis if available
+            if (this.aiAnalysisResult) {
+                csvContent += '\n\n=== AI分析コメント ===\n';
+                
+                // Clean and format AI analysis text
+                const cleanAnalysis = this.aiAnalysisResult
+                    .replace(/\n/g, ' ')  // Replace line breaks with spaces
+                    .replace(/"/g, '""'); // Escape quotes for CSV
+                
+                csvContent += `"${cleanAnalysis}"\n`;
+                
+                // Parse structured sections if available
+                const sections = this.parseAnalysisText(this.aiAnalysisResult);
+                if (sections.length > 0) {
+                    csvContent += '\n=== AI分析詳細 ===\n';
+                    sections.forEach(section => {
+                        const cleanTitle = section.title.replace(/"/g, '""');
+                        const cleanContent = section.content.replace(/\n/g, ' ').replace(/"/g, '""');
+                        csvContent += `"${cleanTitle}","${cleanContent}"\n`;
+                    });
+                }
+            } else {
+                csvContent += '\n\n=== AI分析コメント ===\n';
+                csvContent += '"AI分析が実行されていません。AI分析実行ボタンをクリックしてから再度エクスポートしてください。"\n';
+            }
+
             // Add analysis timestamp
             csvContent += `\n分析実行日時,${new Date().toLocaleString('ja-JP')}\n`;
 
@@ -1084,6 +1113,116 @@ class AdAnalysisDashboard {
         } catch (error) {
             console.error('CSV Export Error:', error);
             alert('CSVエクスポート中にエラーが発生しました。');
+        }
+    }
+
+    exportAIAnalysisToCSV() {
+        if (!this.aiAnalysisResult) {
+            alert('AI分析結果がありません。まず「AI分析実行」ボタンをクリックして分析を実行してください。');
+            return;
+        }
+
+        try {
+            // Create CSV content focused on AI analysis
+            let csvContent = '=== AI広告分析レポート ===\n\n';
+            
+            // Add basic KPI summary
+            if (this.kpiData) {
+                csvContent += '=== 基本データサマリー ===\n';
+                csvContent += `総キャンペーン数,${this.kpiData.totalCampaigns}\n`;
+                csvContent += `総消化金額,${Math.round(this.kpiData.totalSpend).toLocaleString()}円\n`;
+                csvContent += `総結果数,${Math.round(this.kpiData.totalResults).toLocaleString()}\n`;
+                csvContent += `総フォロワー獲得,${Math.round(this.kpiData.totalFollowers).toLocaleString()}\n`;
+                csvContent += `平均CTR,${this.kpiData.avgCTR.toFixed(2)}%\n`;
+                csvContent += `平均CPC,${Math.round(this.kpiData.avgCPC).toLocaleString()}円\n`;
+                csvContent += `平均CPA,${Math.round(this.kpiData.avgCPA).toLocaleString()}円\n`;
+                csvContent += `平均フォロー率,${this.kpiData.avgFollowRate.toFixed(2)}%\n\n`;
+            }
+
+            // Parse and structure AI analysis
+            const sections = this.parseAnalysisText(this.aiAnalysisResult);
+            
+            if (sections.length > 0) {
+                csvContent += '=== AI分析詳細レポート ===\n';
+                
+                sections.forEach((section, index) => {
+                    csvContent += `\n[${index + 1}] ${section.title}\n`;
+                    
+                    // Split content into bullet points for better readability
+                    const points = section.content.split('\n').filter(line => line.trim());
+                    points.forEach(point => {
+                        if (point.trim()) {
+                            // Clean and format each point
+                            const cleanPoint = point.trim().replace(/^[•\-\*]\s*/, '');
+                            if (cleanPoint) {
+                                csvContent += `"${cleanPoint.replace(/"/g, '""')}"\n`;
+                            }
+                        }
+                    });
+                });
+            } else {
+                // Fallback: use raw analysis text
+                csvContent += '=== AI分析コメント ===\n';
+                const cleanAnalysis = this.aiAnalysisResult.replace(/"/g, '""');
+                csvContent += `"${cleanAnalysis}"\n`;
+            }
+
+            // Add top performing campaigns summary
+            if (this.kpiData && this.kpiData.campaigns) {
+                csvContent += '\n=== トップパフォーマンスキャンペーン ===\n';
+                
+                const topCampaigns = this.kpiData.campaigns
+                    .sort((a, b) => b.spend - a.spend)
+                    .slice(0, 5);
+
+                csvContent += 'ランキング,キャンペーン名,消化金額,CTR(%),CPC(円),フォロー率(%)\n';
+                topCampaigns.forEach((campaign, index) => {
+                    csvContent += `${index + 1},"${campaign.name}",${Math.round(campaign.spend)},${campaign.ctr.toFixed(2)},${Math.round(campaign.cpc)},${campaign.followRate.toFixed(2)}\n`;
+                });
+            }
+
+            // Add analysis metadata
+            csvContent += '\n=== 分析メタデータ ===\n';
+            csvContent += `分析実行日時,${new Date().toLocaleString('ja-JP')}\n`;
+            csvContent += `分析エンジン,OpenAI GPT-3.5-turbo\n`;
+            csvContent += `レポート作成者,AI広告分析ink\n`;
+
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `AI分析レポート_${new Date().toISOString().slice(0, 10)}.csv`);
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Show success message in AI analysis card
+            const aiAnalysis = document.getElementById('aiAnalysis');
+            const successMsg = document.createElement('div');
+            successMsg.className = 'bg-green-500/10 border border-green-500/20 rounded-lg p-3 mt-4';
+            successMsg.innerHTML = `
+                <div class="flex items-center text-green-400 mb-1">
+                    <i class="fas fa-download mr-2"></i>
+                    <span class="font-semibold">CSVダウンロード完了</span>
+                </div>
+                <p class="text-green-300 text-sm">AI分析レポートがダウンロードされました</p>
+            `;
+            
+            aiAnalysis.appendChild(successMsg);
+            
+            setTimeout(() => {
+                if (successMsg.parentNode) {
+                    successMsg.parentNode.removeChild(successMsg);
+                }
+            }, 5000);
+
+        } catch (error) {
+            console.error('AI Analysis CSV Export Error:', error);
+            alert('AI分析CSVエクスポート中にエラーが発生しました。');
         }
     }
 }

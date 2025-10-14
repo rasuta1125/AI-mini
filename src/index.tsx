@@ -585,9 +585,14 @@ app.get('/', (c) => {
                             <i class="fas fa-robot text-pink-400 text-2xl mr-3"></i>
                             <h3 class="text-xl font-semibold text-white">AI分析コメント</h3>
                         </div>
-                        <button id="analyzeBtn" class="px-4 py-2 btn-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-300" disabled>
-                            <i class="fas fa-magic mr-2"></i>AI分析実行
-                        </button>
+                        <div class="flex space-x-2">
+                            <button onclick="exportAIAnalysisToCSV()" class="px-3 py-1 bg-green-500/20 text-green-200 rounded text-sm hover:bg-green-500/30 transition-colors" title="AI分析結果をCSVでダウンロード">
+                                <i class="fas fa-file-csv mr-1"></i>CSV出力
+                            </button>
+                            <button id="analyzeBtn" class="px-4 py-2 btn-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all duration-300" disabled>
+                                <i class="fas fa-magic mr-2"></i>AI分析実行
+                            </button>
+                        </div>
                     </div>
                     <div id="aiAnalysis" class="text-gray-300 space-y-4">
                         <div class="flex items-center justify-center py-8">
