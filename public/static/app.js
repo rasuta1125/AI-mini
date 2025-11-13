@@ -172,14 +172,20 @@ class AdAnalysisDashboard {
         headers.forEach(header => {
             const cleanHeader = header.trim();
             
+            // Skip empty headers
+            if (!cleanHeader) {
+                mapping[cleanHeader] = cleanHeader;
+                return;
+            }
+            
             // Map various possible column names to standardized names
             if (cleanHeader.includes('キャンペーン名') || cleanHeader === 'Campaign Name') {
                 mapping[cleanHeader] = 'キャンペーン名';
-            } else if (cleanHeader.includes('広告セット名') || cleanHeader === 'Ad Set Name') {
-                mapping[cleanHeader] = '広告セット名';
+            } else if (cleanHeader.includes('広告名') || cleanHeader.includes('広告セット名') || cleanHeader === 'Ad Set Name' || cleanHeader === 'Ad Name') {
+                mapping[cleanHeader] = 'キャンペーン名'; // Use as campaign name if no dedicated campaign name column
             } else if (cleanHeader.includes('消化金額') || cleanHeader.includes('Amount Spent') || cleanHeader.includes('JPY')) {
                 mapping[cleanHeader] = '消化金額';
-            } else if (cleanHeader.includes('結果') && !cleanHeader.includes('単価') && !cleanHeader.includes('タイプ')) {
+            } else if (cleanHeader === '結果' || (cleanHeader.includes('結果') && !cleanHeader.includes('単価') && !cleanHeader.includes('タイプ'))) {
                 mapping[cleanHeader] = '結果';
             } else if (cleanHeader.includes('フォロワー') || cleanHeader === 'Followers') {
                 mapping[cleanHeader] = 'フォロワー';
@@ -187,6 +193,12 @@ class AdAnalysisDashboard {
                 mapping[cleanHeader] = 'リーチ';
             } else if (cleanHeader.includes('インプレッション') || cleanHeader === 'Impressions') {
                 mapping[cleanHeader] = 'インプレッション';
+            } else if (cleanHeader === 'CTR' && !cleanHeader.includes('スコア')) {
+                mapping[cleanHeader] = 'CTR_provided'; // Mark as pre-calculated CTR
+            } else if (cleanHeader === 'CPA' && !cleanHeader.includes('スコア')) {
+                mapping[cleanHeader] = 'CPA_provided'; // Mark as pre-calculated CPA
+            } else if (cleanHeader === 'CPC' && !cleanHeader.includes('スコア')) {
+                mapping[cleanHeader] = 'CPC_provided'; // Mark as pre-calculated CPC
             } else {
                 // Keep original name if no mapping found
                 mapping[cleanHeader] = cleanHeader;
@@ -251,13 +263,37 @@ class AdAnalysisDashboard {
             kpis.totalImpressions += impressions;
 
             // Calculate per-campaign metrics
-            const ctr = impressions > 0 ? (results / impressions * 100) : 0;
-            const cpc = results > 0 ? (spend / results) : 0;
-            const cpa = followers > 0 ? (spend / followers) : 0;
+            // Check if CTR/CPC/CPA are already provided in CSV
+            let ctr, cpc, cpa;
+            
+            if (row['CTR_provided']) {
+                // CTR already calculated in CSV - parse percentage value
+                ctr = this.parseNumber(row['CTR_provided']);
+            } else {
+                // Calculate CTR from impressions and results
+                ctr = impressions > 0 ? (results / impressions * 100) : 0;
+            }
+            
+            if (row['CPC_provided']) {
+                // CPC already calculated in CSV
+                cpc = this.parseNumber(row['CPC_provided']);
+            } else {
+                // Calculate CPC from spend and results
+                cpc = results > 0 ? (spend / results) : 0;
+            }
+            
+            if (row['CPA_provided']) {
+                // CPA already calculated in CSV
+                cpa = this.parseNumber(row['CPA_provided']);
+            } else {
+                // Calculate CPA from spend and followers
+                cpa = followers > 0 ? (spend / followers) : 0;
+            }
+            
             const followRate = reach > 0 ? (followers / reach * 100) : 0;
 
             kpis.campaigns.push({
-                name: row['キャンペーン名'] || row['広告セット名'] || `Campaign ${kpis.campaigns.length + 1}`,
+                name: row['キャンペーン名'] || row['広告セット名'] || row['広告名'] || `Campaign ${kpis.campaigns.length + 1}`,
                 spend,
                 results,
                 followers,
@@ -271,9 +307,21 @@ class AdAnalysisDashboard {
         });
 
         // Calculate averages
-        kpis.avgCTR = kpis.totalImpressions > 0 ? (kpis.totalResults / kpis.totalImpressions * 100) : 0;
-        kpis.avgCPC = kpis.totalResults > 0 ? (kpis.totalSpend / kpis.totalResults) : 0;
-        kpis.avgCPA = kpis.totalFollowers > 0 ? (kpis.totalSpend / kpis.totalFollowers) : 0;
+        // Use campaign-level CTR/CPC/CPA if available, otherwise calculate from totals
+        const validCampaignsCount = kpis.campaigns.filter(c => c.ctr > 0 || c.cpc > 0 || c.cpa > 0).length;
+        
+        if (validCampaignsCount > 0) {
+            // Calculate weighted averages from campaign data
+            kpis.avgCTR = kpis.campaigns.reduce((sum, c) => sum + c.ctr, 0) / kpis.campaigns.length;
+            kpis.avgCPC = kpis.campaigns.reduce((sum, c) => sum + c.cpc, 0) / kpis.campaigns.length;
+            kpis.avgCPA = kpis.campaigns.reduce((sum, c) => sum + c.cpa, 0) / kpis.campaigns.length;
+        } else {
+            // Fallback: calculate from totals
+            kpis.avgCTR = kpis.totalImpressions > 0 ? (kpis.totalResults / kpis.totalImpressions * 100) : 0;
+            kpis.avgCPC = kpis.totalResults > 0 ? (kpis.totalSpend / kpis.totalResults) : 0;
+            kpis.avgCPA = kpis.totalFollowers > 0 ? (kpis.totalSpend / kpis.totalFollowers) : 0;
+        }
+        
         kpis.avgFollowRate = kpis.totalReach > 0 ? (kpis.totalFollowers / kpis.totalReach * 100) : 0;
 
         return kpis;
@@ -283,8 +331,8 @@ class AdAnalysisDashboard {
         if (!value || value === '') return 0;
         
         if (typeof value === 'string') {
-            // Remove currency symbols, commas, whitespace, and parentheses
-            value = value.replace(/[¥,\\s()]/g, '');
+            // Remove currency symbols, commas, whitespace, parentheses, and percentage signs
+            value = value.replace(/[¥,%\s()]/g, '');
             // Handle negative numbers in parentheses format
             if (value.includes('-')) {
                 value = value.replace('-', '');
