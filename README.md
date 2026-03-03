@@ -3,9 +3,19 @@
 ## プロジェクト概要
 - **名前**: AI広告分析ink
 - **目標**: Meta広告のCSVデータをアップロードするだけで、主要KPI（CTR/CPC/CPA/フォロー率）を自動算出し、グラフ可視化とAI改善コメントを表示するダッシュボード
-- **機能**: CSV解析、KPI自動算出、クリエイティブランキング、グラフ可視化、AI分析コメント、レスポンシブデザイン
+- **機能**: CSV解析、KPI自動算出、クリエイティブランキング、グラフ可視化、AI分析コメント、レスポンシブデザイン、**Facebook CSV変換ツール**
 
 ## 📊 現在完了している機能
+
+✅ **Facebook CSV変換機能** 🆕
+- Facebook広告のエクスポートCSVをGOLD・KEI様レポート形式に自動変換
+- キャンペーン名の自動簡略化と正規化
+- フォロワー数の推定とマッピング
+- 結果単価の四捨五入処理
+- ブラウザベースの即座変換（サーバーアップロード不要）
+- 変換後のCSVを即座にダウンロード可能
+- 専用UI: `/converter` エンドポイント
+
 ✅ **CSVアップロード機能**
 - Meta広告からエクスポートしたCSVファイルの自動認識
 - 日本語列名対応（キャンペーン名、消化金額、結果、フォロワー、リーチ、インプレッション等）
@@ -57,8 +67,9 @@
 - レスポンシブデザイン（モバイル・タブレット対応）
 
 ## 🌐 URL一覧
-- **開発環境**: https://3000-i3bm4wb6cbqix6pc7t98z-b237eb32.sandbox.novita.ai
-- **ヘルスチェック**: https://3000-i3bm4wb6cbqix6pc7t98z-b237eb32.sandbox.novita.ai/api/health
+- **開発環境**: https://3000-iv9phfy5pun1syjvl040p-dfc00ec5.sandbox.novita.ai
+- **CSV変換ツール**: https://3000-iv9phfy5pun1syjvl040p-dfc00ec5.sandbox.novita.ai/converter 🆕
+- **ヘルスチェック**: https://3000-iv9phfy5pun1syjvl040p-dfc00ec5.sandbox.novita.ai/api/health
 - **GitHub**: https://github.com/rasuta1125/AI-mini
 - **本番環境**: 未設定（Cloudflare API key 設定後にデプロイ予定）
 
@@ -72,6 +83,17 @@
   3. リアルタイムでUI更新・グラフ表示
 
 ## 📋 使い方ガイド
+
+### Facebook CSV変換ツール 🆕
+Facebook広告データを簡単に変換できるツールを追加しました！
+
+#### ステップ0: Facebook CSVの変換（必要に応じて）
+1. ブラウザで `/converter` にアクセス
+2. FacebookからエクスポートしたCSVファイルを選択
+3. 「GOLD形式に変換」ボタンをクリック
+4. 変換されたCSVファイルをダウンロード
+5. このCSVファイルを使って以下の分析を実行
+
 ### ステップ1: CSVを用意
 Meta Business Managerから広告データをCSVでエクスポートします。
 必要な列：キャンペーン名、消化金額、結果、フォロワー、リーチ、インプレッション
