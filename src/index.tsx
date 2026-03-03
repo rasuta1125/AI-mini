@@ -92,7 +92,7 @@ app.get('/converter', async (c) => {
         <button id="convertBtn" 
                 class="btn-primary w-full py-4 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled>
-          🔄 GOLD形式に変換
+          🔄 レポート形式に変換
         </button>
         <div id="progressBar" class="mt-4 hidden">
           <div class="bg-white/20 rounded-full h-2 overflow-hidden">
@@ -137,7 +137,7 @@ app.get('/converter', async (c) => {
       <ol class="text-sm opacity-90 space-y-2">
         <li><strong>1.</strong> FacebookのMeta Business Managerから広告データをCSVでエクスポート</li>
         <li><strong>2.</strong> エクスポートしたCSVファイルをアップロード</li>
-        <li><strong>3.</strong> 「GOLD形式に変換」ボタンをクリック</li>
+        <li><strong>3.</strong> 「レポート形式に変換」ボタンをクリック</li>
         <li><strong>4.</strong> 変換されたCSVファイルをダウンロード</li>
       </ol>
       <div class="mt-4 pt-4 border-t border-white/20">
