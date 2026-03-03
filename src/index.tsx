@@ -14,8 +14,344 @@ app.use('/api/*', cors())
 // Serve static files from public directory
 app.use('/static/*', serveStatic({ root: './public' }))
 
-// Serve converter page
-app.get('/converter', serveStatic({ path: './public/converter.html' }))
+// Serve converter page as raw HTML response
+app.get('/converter', async (c) => {
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facebook CSV コンバーター | GOLD・KEI様レポート形式</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .glass {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      transition: all 0.3s ease;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+    .progress-bar {
+      transition: width 0.3s ease;
+    }
+  </style>
+</head>
+<body class="p-8">
+  <div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-8 text-white">
+      <h1 class="text-4xl font-bold mb-2">📊 Facebook CSV コンバーター</h1>
+      <p class="text-lg opacity-90">Facebookエクスポートデータを GOLD・KEI様レポート形式に変換</p>
+    </div>
+
+    <!-- Main Card -->
+    <div class="glass rounded-2xl p-8 text-white">
+      <!-- Step 1: File Upload -->
+      <div class="mb-8">
+        <h2 class="text-2xl font-bold mb-4 flex items-center">
+          <span class="bg-purple-500 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">1</span>
+          Facebook CSVファイルを選択
+        </h2>
+        <div class="bg-white/10 rounded-xl p-6 border-2 border-dashed border-white/30 hover:border-white/50 transition-all cursor-pointer"
+             id="dropZone">
+          <input type="file" id="fileInput" accept=".csv" class="hidden">
+          <div class="text-center">
+            <svg class="w-16 h-16 mx-auto mb-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            <p class="text-lg mb-2">クリックしてファイルを選択</p>
+            <p class="text-sm opacity-70">または、ドラッグ＆ドロップ</p>
+          </div>
+        </div>
+        <div id="fileInfo" class="mt-4 hidden">
+          <div class="bg-green-500/20 border border-green-500/50 rounded-lg p-4">
+            <p class="font-semibold">✓ ファイルを読み込みました</p>
+            <p class="text-sm opacity-80 mt-1" id="fileName"></p>
+            <p class="text-sm opacity-80" id="rowCount"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Convert -->
+      <div class="mb-8">
+        <h2 class="text-2xl font-bold mb-4 flex items-center">
+          <span class="bg-purple-500 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">2</span>
+          変換実行
+        </h2>
+        <button id="convertBtn" 
+                class="btn-primary w-full py-4 rounded-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled>
+          🔄 GOLD形式に変換
+        </button>
+        <div id="progressBar" class="mt-4 hidden">
+          <div class="bg-white/20 rounded-full h-2 overflow-hidden">
+            <div class="progress-bar bg-green-400 h-full" style="width: 0%"></div>
+          </div>
+          <p class="text-sm text-center mt-2 opacity-80" id="progressText">変換中...</p>
+        </div>
+      </div>
+
+      <!-- Step 3: Download -->
+      <div id="downloadSection" class="hidden">
+        <h2 class="text-2xl font-bold mb-4 flex items-center">
+          <span class="bg-purple-500 rounded-full w-8 h-8 flex items-center justify-center mr-3 text-sm">3</span>
+          変換完了
+        </h2>
+        <div class="bg-green-500/20 border border-green-500/50 rounded-xl p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <p class="font-bold text-lg">✓ 変換が完了しました！</p>
+              <p class="text-sm opacity-80 mt-1" id="convertedInfo"></p>
+            </div>
+            <svg class="w-12 h-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <button id="downloadBtn" 
+                  class="w-full bg-green-500 hover:bg-green-600 py-3 rounded-xl font-bold transition-all">
+            ⬇️ CSVファイルをダウンロード
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Card -->
+    <div class="glass rounded-2xl p-6 mt-6 text-white">
+      <h3 class="font-bold text-lg mb-3 flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+        </svg>
+        使い方
+      </h3>
+      <ol class="text-sm opacity-90 space-y-2">
+        <li><strong>1.</strong> FacebookのMeta Business Managerから広告データをCSVでエクスポート</li>
+        <li><strong>2.</strong> エクスポートしたCSVファイルをアップロード</li>
+        <li><strong>3.</strong> 「GOLD形式に変換」ボタンをクリック</li>
+        <li><strong>4.</strong> 変換されたCSVファイルをダウンロード</li>
+      </ol>
+      <div class="mt-4 pt-4 border-t border-white/20">
+        <p class="text-xs opacity-70">
+          <strong>必要な列:</strong> キャンペーン名、消化金額 (JPY)、結果の単価、開始、終了日時、リーチ、インプレッション、結果、結果タイプ
+        </p>
+      </div>
+    </div>
+
+    <!-- Back Link -->
+    <div class="text-center mt-6">
+      <a href="/" class="text-white opacity-80 hover:opacity-100 transition-opacity">
+        ← メイン分析ツールに戻る
+      </a>
+    </div>
+  </div>
+
+  <script>
+    let csvData = null;
+    let convertedData = null;
+
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const fileInfo = document.getElementById('fileInfo');
+    const convertBtn = document.getElementById('convertBtn');
+    const downloadSection = document.getElementById('downloadSection');
+    const progressBar = document.getElementById('progressBar');
+
+    // File selection handlers
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    fileInput.addEventListener('change', handleFileSelect);
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-white');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-white');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-white');
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith('.csv')) {
+        handleFile(file);
+      }
+    });
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (file) {
+        handleFile(file);
+      }
+    }
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        parseCSV(text, file.name);
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    function parseCSV(text, fileName) {
+      const lines = text.split('\\n').filter(line => line.trim());
+      if (lines.length < 2) {
+        alert('CSVファイルが空です');
+        return;
+      }
+
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      const rows = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        const row = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index] || '';
+        });
+        rows.push(row);
+      }
+
+      csvData = rows;
+      
+      // Show file info
+      fileInfo.classList.remove('hidden');
+      document.getElementById('fileName').textContent = \`ファイル名: \${fileName}\`;
+      document.getElementById('rowCount').textContent = \`データ行数: \${rows.length}行\`;
+      
+      // Enable convert button
+      convertBtn.disabled = false;
+    }
+
+    function parseCSVLine(line) {
+      const values = [];
+      let current = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(current.trim().replace(/^"|"$/g, ''));
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      
+      values.push(current.trim().replace(/^"|"$/g, ''));
+      return values;
+    }
+
+    // Convert button handler
+    convertBtn.addEventListener('click', async () => {
+      if (!csvData) {
+        alert('CSVファイルを選択してください');
+        return;
+      }
+
+      convertBtn.disabled = true;
+      progressBar.classList.remove('hidden');
+      downloadSection.classList.add('hidden');
+
+      // Animate progress bar
+      const progressBarEl = progressBar.querySelector('.progress-bar');
+      progressBarEl.style.width = '30%';
+
+      try {
+        // Call API to convert
+        const response = await fetch('/api/convert-facebook-csv', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ csvData })
+        });
+
+        progressBarEl.style.width = '70%';
+
+        if (!response.ok) {
+          throw new Error('変換に失敗しました');
+        }
+
+        const result = await response.json();
+        convertedData = result.convertedData;
+
+        progressBarEl.style.width = '100%';
+        document.getElementById('progressText').textContent = '変換完了！';
+
+        // Show download section
+        setTimeout(() => {
+          progressBar.classList.add('hidden');
+          downloadSection.classList.remove('hidden');
+          document.getElementById('convertedInfo').textContent = 
+            \`\${convertedData.length}行のデータを変換しました\`;
+          progressBarEl.style.width = '0%';
+        }, 500);
+
+      } catch (error) {
+        console.error('Conversion error:', error);
+        alert('変換中にエラーが発生しました: ' + error.message);
+        progressBar.classList.add('hidden');
+        convertBtn.disabled = false;
+      }
+    });
+
+    // Download button handler
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      if (!convertedData) {
+        alert('変換されたデータがありません');
+        return;
+      }
+
+      // Generate CSV
+      const headers = ['', 'キャンペーン名', '消化金額 (JPY)', '結果の単価', 'フォロワー', 
+                       '開始', '終了日時', 'リーチ', 'インプレッション', '結果'];
+      
+      let csv = headers.join(',') + '\\n';
+      
+      convertedData.forEach(row => {
+        const values = headers.map(header => {
+          const value = row[header] || '';
+          // Escape values that contain commas
+          return value.toString().includes(',') ? \`"\${value}"\` : value;
+        });
+        csv += values.join(',') + '\\n';
+      });
+
+      // Create download link
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      const today = new Date().toISOString().split('T')[0];
+      link.setAttribute('href', url);
+      link.setAttribute('download', \`GOLD_KEI_Report_\${today}.csv\`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+  </script>
+</body>
+</html>`;
+  return c.html(html);
+})
 
 // AI Analysis API Endpoint
 app.post('/api/analyze', async (c) => {
