@@ -158,6 +158,7 @@ app.get('/converter', async (c) => {
   <script>
     let csvData = null;
     let convertedData = null;
+    let originalFileName = '';
 
     const fileInput = document.getElementById('fileInput');
     const dropZone = document.getElementById('dropZone');
@@ -211,6 +212,9 @@ app.get('/converter', async (c) => {
         alert('CSVファイルが空です');
         return;
       }
+
+      // Store original file name (remove .csv extension)
+      originalFileName = fileName.replace(/\\.csv$/i, '');
 
       // Parse headers and remove quotes
       const headerLine = lines[0];
@@ -346,8 +350,13 @@ app.get('/converter', async (c) => {
       const url = URL.createObjectURL(blob);
       
       const today = new Date().toISOString().split('T')[0];
+      // Use original filename if available, otherwise use default name
+      const downloadFileName = originalFileName 
+        ? \`\${originalFileName}_変換済_\${today}.csv\`
+        : \`Report_\${today}.csv\`;
+      
       link.setAttribute('href', url);
-      link.setAttribute('download', \`GOLD_KEI_Report_\${today}.csv\`);
+      link.setAttribute('download', downloadFileName);
       link.style.visibility = 'hidden';
       
       document.body.appendChild(link);
@@ -1033,18 +1042,29 @@ app.post('/api/convert-facebook-csv', async (c) => {
       console.log('First row data:', csvData[0]);
     }
 
-    // Convert Facebook CSV format to GOLD report format
+    // Convert Facebook CSV format to report format
     const convertedData = csvData.map((row, index) => {
-      // Extract campaign name
+      // Extract campaign name - get the first line only and simplify
       const fullName = row['キャンペーン名'] || '';
       let campaignName = 'Unknown';
       
+      // Extract first line of campaign name (before line break)
+      const firstLine = fullName.split('\\n')[0].trim();
+      
+      // Pattern matching with priority order
       if (fullName.includes('沖縄らしい家が欲しかった')) {
         campaignName = '沖縄らしい家が欲しかった';
       } else if (fullName.includes('リゾート物件')) {
         campaignName = 'リゾート物件';
+      } else if (fullName.includes('マカロニスタジオ') || fullName.includes('マカロニ')) {
+        campaignName = 'マカロニスタジオ';
+      } else if (fullName.includes('Instagram Post') || firstLine === 'Instagram Post') {
+        campaignName = 'Instagram Post';
       } else if (fullName.includes('インスタ投稿') || fullName.includes('Instagram投稿')) {
         campaignName = 'インスタ投稿';
+      } else if (firstLine && firstLine.length > 0) {
+        // Use the first line as campaign name if no pattern matches
+        campaignName = firstLine.substring(0, 30); // Limit to 30 chars
       }
       
       // Add space prefix only for first row
