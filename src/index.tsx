@@ -212,7 +212,12 @@ app.get('/converter', async (c) => {
         return;
       }
 
-      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      // Parse headers and remove quotes
+      const headerLine = lines[0];
+      const headers = parseCSVLine(headerLine).map(h => h.trim().replace(/^"|"$/g, ''));
+      
+      console.log('Parsed headers:', headers);
+      
       const rows = [];
 
       for (let i = 1; i < lines.length; i++) {
@@ -225,6 +230,8 @@ app.get('/converter', async (c) => {
       }
 
       csvData = rows;
+      
+      console.log('Sample row 0:', rows[0]);
       
       // Show file info
       fileInfo.classList.remove('hidden');
@@ -1020,6 +1027,12 @@ app.post('/api/convert-facebook-csv', async (c) => {
       return c.json({ error: 'Invalid CSV data' }, 400);
     }
 
+    // Debug: Log first row to check column names
+    if (csvData.length > 0) {
+      console.log('First row keys:', Object.keys(csvData[0]));
+      console.log('First row data:', csvData[0]);
+    }
+
     // Convert Facebook CSV format to GOLD report format
     const convertedData = csvData.map((row, index) => {
       // Extract campaign name
@@ -1054,6 +1067,18 @@ app.post('/api/convert-facebook-csv', async (c) => {
       // Round result unit price
       const resultUnitPrice = parseFloat(row['結果の単価'] || '0');
       const roundedPrice = Math.round(resultUnitPrice);
+      
+      // Debug: Log what we're extracting
+      if (index === 0) {
+        console.log('Row 0 extraction:', {
+          campaignName,
+          spend: row['消化金額 (JPY)'],
+          unitPrice: row['結果の単価'],
+          reach: row['リーチ'],
+          impressions: row['インプレッション'],
+          results: row['結果']
+        });
+      }
       
       return {
         '': '',
